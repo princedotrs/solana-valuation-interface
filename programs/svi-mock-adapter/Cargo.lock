@@ -3801,6 +3801,7 @@ name = "svi-mock-adapter"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "bytemuck",
  "litesvm",
  "solana-keypair",
  "solana-message",
