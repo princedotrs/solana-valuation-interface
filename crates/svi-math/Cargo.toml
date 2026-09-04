@@ -1,0 +1,18 @@
+[package]
+name = "svi-math"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89.0"
+description = "Exact integer fixed-point helpers with explicit rounding direction. No Solana dependency."
+license = "Apache-2.0"
+
+# Standalone package: not a member of either Anchor workspace.
+[workspace]
+
+[dependencies]
+
+[dev-dependencies]
+proptest = "1"
+
+[profile.release]
+overflow-checks = true
