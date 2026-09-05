@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1010" viewBox="0 0 1600 1010" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif">
+<defs>
+<marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
+<marker id="headred" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/></marker>
+</defs>
+<rect width="1600" height="1010" fill="#ffffff"/>
+<text x="60" y="52" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="30" font-weight="700" fill="#0f172a">Solana Valuation Interface — system architecture</text>
+<text x="60" y="82" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="17" fill="#475569">The value is computed on-chain from verified accounts and written to a public account. No off-chain service is ever trusted with the arithmetic.</text>
+<rect x="60" y="108" width="1180" height="152" rx="14" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="78" y="133" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14" font-weight="700" fill="#64748b" letter-spacing="1.1">EXISTING ON-CHAIN STATE  ·  UNMODIFIED  ·  NO COOPERATION REQUIRED</text>
+<rect x="90" y="142" width="265" height="100" rx="10" fill="#eef1f5" stroke="#94a3b8" stroke-width="2"/>
+<text x="222.5" y="179.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="17" font-weight="700" fill="#0f172a" text-anchor="middle">Hylo Exchange</text>
+<text x="222.5" y="205.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">protocol state · LST headers</text>
+<text x="222.5" y="223.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">TotalSolCache · xSOL mint</text>
+<rect x="375" y="142" width="265" height="100" rx="10" fill="#eef1f5" stroke="#94a3b8" stroke-width="2"/>
+<text x="507.5" y="179.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="17" font-weight="700" fill="#0f172a" text-anchor="middle">Sanctum / SPL</text>
+<text x="507.5" y="205.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">stake pools</text>
+<text x="507.5" y="223.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">LST redemption rates</text>
+<rect x="660" y="142" width="265" height="100" rx="10" fill="#eef1f5" stroke="#94a3b8" stroke-width="2"/>
+<text x="792.5" y="179.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="17" font-weight="700" fill="#0f172a" text-anchor="middle">Pyth SOL/USD</text>
+<text x="792.5" y="205.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">PriceUpdateV2</text>
+<text x="792.5" y="223.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">price + confidence</text>
+<rect x="945" y="142" width="265" height="100" rx="10" fill="#eef1f5" stroke="#94a3b8" stroke-width="2"/>
+<text x="1077.5" y="179.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="17" font-weight="700" fill="#0f172a" text-anchor="middle">Clock sysvar</text>
+<text x="1077.5" y="205.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">slot · epoch</text>
+<text x="1077.5" y="223.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">unix timestamp</text>
+<rect x="340" y="316" width="620" height="140" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+<text x="650.0" y="365.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="21" font-weight="700" fill="#0f172a" text-anchor="middle">svi-hylo-adapter   —   the calculator</text>
+<text x="650.0" y="392.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14" fill="#475569" text-anchor="middle">verify owner · PDA derivation · mint · program ID</text>
+<text x="650.0" y="411.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14" fill="#475569" text-anchor="middle">call hylo-core (pinned SHA) via svi-math — exact integers, no floats</text>
+<text x="650.0" y="430.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14" fill="#475569" text-anchor="middle">propagate Pyth confidence into lower / upper bounds</text>
+<rect x="60" y="342" width="250" height="92" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="185.0" y="368.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="17" font-weight="700" fill="#0f172a" text-anchor="middle">Keeper</text>
+<text x="185.0" y="393.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="12" fill="#475569" text-anchor="middle">permissionless crank</text>
+<text x="185.0" y="410.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="12" fill="#475569" text-anchor="middle">pays gas · cannot</text>
+<text x="185.0" y="427.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="12" fill="#475569" text-anchor="middle">influence the value</text>
+<rect x="340" y="500" width="620" height="108" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+<text x="650.0" y="542.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="21" font-weight="700" fill="#0f172a" text-anchor="middle">svi-core   —   the notice board</text>
+<text x="650.0" y="569.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14" fill="#475569" text-anchor="middle">dumb, auditable, freezable · knows nothing about Hylo</text>
+<text x="650.0" y="588.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14" fill="#475569" text-anchor="middle">adapter PDA signed? · sequence++ · fresh? · lower ≤ v ≤ upper?</text>
+<rect x="240" y="658" width="860" height="128" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="670.0" y="710.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="21" font-weight="700" fill="#0f172a" text-anchor="middle">QUOTE ACCOUNT   —   320 bytes, fixed layout   —   the product</text>
+<text x="670.0" y="737.5" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14.5" fill="#475569" text-anchor="middle">value + lower / upper bounds  ·  observed_slot  ·  valid_until_slot</text>
+<text x="670.0" y="757.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14.5" fill="#475569" text-anchor="middle">sequence  ·  status_flags  ·  methodology_hash  ·  value_type</text>
+<rect x="1155" y="658" width="280" height="128" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="1295.0" y="701.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="18" font-weight="700" fill="#0f172a" text-anchor="middle">Independent observer</text>
+<text x="1295.0" y="727.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">recomputes NAV from raw</text>
+<text x="1295.0" y="745.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">accounts via 2 RPCs and</text>
+<text x="1295.0" y="763.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">compares, byte for byte</text>
+<rect x="60" y="830" width="1480" height="150" rx="14" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="78" y="855" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14" font-weight="700" fill="#64748b" letter-spacing="1.1">CONSUMERS</text>
+<rect x="105" y="862" width="340" height="96" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="275.0" y="898.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="18" font-weight="700" fill="#0f172a" text-anchor="middle">Lending markets</text>
+<text x="275.0" y="924.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">Kamino · marginfi · Loopscale</text>
+<text x="275.0" y="942.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">use lower bound as collateral</text>
+<rect x="475" y="862" width="280" height="96" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="615.0" y="907.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="18" font-weight="700" fill="#0f172a" text-anchor="middle">Kamino Scope</text>
+<text x="615.0" y="933.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">as an SVI quote type</text>
+<rect x="785" y="862" width="280" height="96" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="925.0" y="907.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="18" font-weight="700" fill="#0f172a" text-anchor="middle">Wallets · dashboards</text>
+<text x="925.0" y="933.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">display NAV honestly</text>
+<rect x="1095" y="862" width="400" height="96" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="1295.0" y="898.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="18" font-weight="700" fill="#0f172a" text-anchor="middle">Verifiable mirror API  →  Pyth</text>
+<text x="1295.0" y="924.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">ZERO arithmetic · 2 RPCs · byte-for-byte match</text>
+<text x="1295.0" y="942.0" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" fill="#475569" text-anchor="middle">the API Pyth asked for, made safe</text>
+<path d="M 222 242 L 650 310" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<path d="M 507 242 L 650 310" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<path d="M 792 242 L 650 310" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<path d="M 1077 242 L 650 310" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<rect x="442.19" y="277" width="415.62" height="21" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="650" y="288" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" font-weight="600" fill="#475569" text-anchor="middle">accounts passed into the transaction — all reads same-slot</text>
+<path d="M 310 388 L 334 384" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<path d="M 650 456 L 650 494" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<rect x="523.9425" y="472.5" width="252.115" height="21.5" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="650" y="484" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13.5" font-weight="600" fill="#7c3aed" text-anchor="middle">CPI  ·  signed by the adapter PDA</text>
+<path d="M 650 608 L 650 652" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<rect x="588.3375" y="628.5" width="123.325" height="21.5" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="650" y="640" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13.5" font-weight="600" fill="#d97706" text-anchor="middle">the only writer</text>
+<path d="M 670 786 L 275 856" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<path d="M 670 786 L 615 856" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<path d="M 670 786 L 925 856" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<path d="M 670 786 L 1250 856" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)"/>
+<path d="M 1240 186 H 1295 V 652" stroke="#64748b" stroke-width="2" fill="none" stroke-dasharray="7 5" marker-end="url(#head)"/>
+<rect x="1292" y="419" width="167.58" height="21" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="1300" y="430" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" font-weight="600" fill="#475569" text-anchor="start">independent re-read of</text>
+<rect x="1292" y="439" width="181.36" height="21" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="1300" y="450" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" font-weight="600" fill="#475569" text-anchor="start">the same source accounts</text>
+<path d="M 1151 722 L 1106 722" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#head)" stroke-dasharray="7 5"/>
+<rect x="1096.8125" y="689.5" width="62.375" height="20.5" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="1128" y="700" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="12.5" font-weight="600" fill="#475569" text-anchor="middle">compare</text>
+<path d="M 1295 786 V 856" stroke="#dc2626" stroke-width="2.4" fill="none" stroke-dasharray="7 5" marker-end="url(#headred)"/>
+<rect x="1224.99" y="815" width="140.02" height="21" rx="4" fill="#ffffff" opacity="0.92"/>
+<text x="1295" y="826" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="13" font-weight="600" fill="#dc2626" text-anchor="middle">halt on divergence</text>
+<text x="60" y="996" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="14.5" fill="#475569"><tspan font-weight="700" fill="#0f172a">Fail stale, never fail wrong.</tspan>  Any unverified input aborts the refresh — the quote ages out and consumers see the expiry. No code path publishes a value computed from unvalidated inputs.</text>
+</svg>
