@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif">
+<defs><marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/></marker></defs>
+<rect width="1600" height="960" fill="#ffffff"/>
+<text x="60" y="54" font-size="31" font-weight="700" fill="#0f172a">Where does the number come from?</text>
+<text x="60" y="86" font-size="17" fill="#475569">Five places the value can change without anyone noticing — versus one, whose output anyone can reproduce from the same slot’s account data.</text>
+<rect x="90" y="122" width="620" height="46" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="400.0" y="152" font-size="19" font-weight="700" fill="#dc2626" text-anchor="middle">TODAY — the pipeline Pyth asked Hylo to build</text>
+<rect x="870" y="122" width="620" height="46" rx="9" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+<text x="1180.0" y="152" font-size="19" font-weight="700" fill="#16a34a" text-anchor="middle">WITH SVI</text>
+<rect x="90" y="186" width="620" height="70" rx="9" fill="#eef1f5" stroke="#94a3b8" stroke-width="2"/>
+<text x="400.0" y="218.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Hylo’s on-chain accounts</text>
+<text x="400.0" y="240.0" font-size="14" fill="#475569" text-anchor="middle">the only real source of truth</text>
+<path d="M 400.0 259 L 400.0 273" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="90" y="278" width="620" height="70" rx="9" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+<text x="400.0" y="310.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">One RPC provider</text>
+<text x="400.0" y="332.0" font-size="14" fill="#475569" text-anchor="middle">stale or forked view goes undetected</text>
+<rect x="606" y="288" width="92" height="22" rx="11" fill="#dc2626"/>
+<text x="652" y="304" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">TRUSTED</text>
+<path d="M 400.0 351 L 400.0 365" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="90" y="370" width="620" height="70" rx="9" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+<text x="400.0" y="402.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Custom off-chain parser</text>
+<text x="400.0" y="424.0" font-size="14" fill="#475569" text-anchor="middle">layout drift misreads silently</text>
+<rect x="606" y="380" width="92" height="22" rx="11" fill="#dc2626"/>
+<text x="652" y="396" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">TRUSTED</text>
+<path d="M 400.0 443 L 400.0 457" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="90" y="462" width="620" height="70" rx="9" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+<text x="400.0" y="494.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Private calculation code</text>
+<text x="400.0" y="516.0" font-size="14" fill="#475569" text-anchor="middle">nobody downstream can reproduce it</text>
+<rect x="606" y="472" width="92" height="22" rx="11" fill="#dc2626"/>
+<text x="652" y="488" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">TRUSTED</text>
+<path d="M 400.0 535 L 400.0 549" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="90" y="554" width="620" height="70" rx="9" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+<text x="400.0" y="586.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Hylo-operated API</text>
+<text x="400.0" y="608.0" font-size="14" fill="#475569" text-anchor="middle">server, DNS, dependency, insider</text>
+<rect x="606" y="564" width="92" height="22" rx="11" fill="#dc2626"/>
+<text x="652" y="580" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">TRUSTED</text>
+<path d="M 400.0 627 L 400.0 641" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="90" y="646" width="620" height="70" rx="9" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+<text x="400.0" y="678.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Publisher process + key</text>
+<text x="400.0" y="700.0" font-size="14" fill="#475569" text-anchor="middle">a key can sign any number</text>
+<rect x="606" y="656" width="92" height="22" rx="11" fill="#dc2626"/>
+<text x="652" y="672" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">TRUSTED</text>
+<path d="M 400.0 719 L 400.0 733" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="90" y="738" width="620" height="70" rx="9" fill="#eef1f5" stroke="#94a3b8" stroke-width="2"/>
+<text x="400.0" y="770.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Price account on-chain</text>
+<text x="400.0" y="792.0" font-size="14" fill="#475569" text-anchor="middle">consumed as collateral value</text>
+<rect x="870" y="186" width="620" height="70" rx="9" fill="#eef1f5" stroke="#94a3b8" stroke-width="2"/>
+<text x="1180.0" y="218.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Hylo’s on-chain accounts</text>
+<text x="1180.0" y="240.0" font-size="14" fill="#475569" text-anchor="middle">unmodified — no cooperation needed</text>
+<path d="M 1180.0 259 L 1180.0 273" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="870" y="278" width="620" height="70" rx="9" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="1180.0" y="310.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Adapter program</text>
+<text x="1180.0" y="332.0" font-size="14" fill="#475569" text-anchor="middle">public code, on-chain integer math</text>
+<rect x="1386" y="288" width="92" height="22" rx="11" fill="#16a34a"/>
+<text x="1432" y="304" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">VERIFIABLE</text>
+<path d="M 1180.0 351 L 1180.0 365" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="870" y="370" width="620" height="70" rx="9" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="1180.0" y="402.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Quote account</text>
+<text x="1180.0" y="424.0" font-size="14" fill="#475569" text-anchor="middle">canonical, public, 320 fixed bytes</text>
+<path d="M 1180.0 443 L 1180.0 457" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="870" y="462" width="620" height="70" rx="9" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="1180.0" y="494.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Mirror API</text>
+<text x="1180.0" y="516.0" font-size="14" fill="#475569" text-anchor="middle">zero arithmetic — copies account bytes</text>
+<rect x="1386" y="472" width="92" height="22" rx="11" fill="#16a34a"/>
+<text x="1432" y="488" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">VERIFIABLE</text>
+<path d="M 1180.0 535 L 1180.0 549" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="870" y="554" width="620" height="70" rx="9" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+<text x="1180.0" y="586.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Publisher process + key</text>
+<text x="1180.0" y="608.0" font-size="14" fill="#475569" text-anchor="middle">still Pyth’s — SVI does not fix this</text>
+<rect x="1386" y="564" width="92" height="22" rx="11" fill="#dc2626"/>
+<text x="1432" y="580" font-size="12.5" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.6">TRUSTED</text>
+<path d="M 1180.0 627 L 1180.0 641" stroke="#94a3b8" stroke-width="2.4" fill="none" marker-end="url(#h)"/>
+<rect x="870" y="646" width="620" height="70" rx="9" fill="#eef1f5" stroke="#94a3b8" stroke-width="2"/>
+<text x="1180.0" y="678.0" font-size="19" font-weight="700" fill="#0f172a" text-anchor="middle">Price account on-chain</text>
+<text x="1180.0" y="700.0" font-size="14" fill="#475569" text-anchor="middle">now reproducible from chain state</text>
+<rect x="90" y="830" width="620" height="66" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="400.0" y="859" font-size="24" font-weight="700" fill="#dc2626" text-anchor="middle">5 trusted hops</text>
+<text x="400.0" y="882" font-size="14.5" fill="#475569" text-anchor="middle">and no way for a consumer to check any of them</text>
+<rect x="870" y="830" width="620" height="66" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+<text x="1180.0" y="859" font-size="24" font-weight="700" fill="#16a34a" text-anchor="middle">1 trusted hop — Pyth’s own key</text>
+<text x="1180.0" y="882" font-size="14.5" fill="#475569" text-anchor="middle">everything upstream is reproducible by anyone</text>
+<text x="60" y="946" font-size="14.5" fill="#475569"><tspan font-weight="700" fill="#0f172a">RPC is not the problem.</tspan>  Every off-chain service reads the chain somehow. The question is where the arithmetic happens — once it happens on-chain, RPCs, APIs and keys are couriers, not authors.</text>
+</svg>
