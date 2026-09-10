@@ -52,6 +52,31 @@ written where anyone can read it. Note it is signed by the **payer**, not the
 authority — cranking is permissionless, and the keeper cannot influence what
 gets written.
 
+### Runbook style
+
+Instruction blocks are **IDL-driven**. Each one gives `program_idl`,
+`instruction_name` and `instruction_args`, then names every account as its own
+nested block:
+
+```hcl
+instruction {
+    program_idl = action.deploy_svi_core.program_idl
+    instruction_name = "initialize_feed"
+    instruction_args = [{ feed_id = variable.feed_id, ... }]
+
+    authority { public_key = signer.authority.public_key }
+    quote     { public_key = variable.quote.pda }
+}
+```
+
+Accounts not named are derived from the IDL — `system_program`, sysvars, and
+PDAs whose seeds the IDL records. `is_signer` always comes from the IDL; only
+`is_writable` can be overridden.
+
+Two things that cost time if you get them wrong: struct arguments are one
+object with named fields, and fixed byte arrays like `[u8; 32]` must be arrays
+of numbers. A hex string is rejected with `expected vec, found string`.
+
 ### Addresses
 
 The three Hylo accounts are derived from the SDK rather than typed by hand:
