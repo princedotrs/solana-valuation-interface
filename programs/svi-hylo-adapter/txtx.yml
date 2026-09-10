@@ -1,0 +1,16 @@
+---
+name: svi-hylo-adapter
+id: svi-hylo-adapter
+runbooks:
+  - name: publish
+    description: Deploy svi-core and the Hylo adapter, then publish a real xSOL NAV quote
+    location: runbooks/publish
+environments:
+  localnet:
+      network_id: localnet
+      rpc_api_url: http://127.0.0.1:8899
+  devnet:
+      network_id: devnet
+      rpc_api_url: https://api.devnet.solana.com
+      payer_keypair_json: ~/.config/solana/id.json
+      authority_keypair_json: ~/.config/solana/id.json

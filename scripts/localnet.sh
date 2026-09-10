@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 #
-# Start a local validator carrying Hylo's REAL mainnet accounts, so the adapter
-# executes against the same bytes mainnet has. Nothing is mocked.
+# FALLBACK ONLY. Prefer Surfpool, which forks mainnet on demand and needs none
+# of the account enumeration or slot warping below:
+#
+#     surfpool start
+#     surfpool run publish        # programs/svi-hylo-adapter/runbooks/publish
+#
+# This script exists for anyone without Surfpool installed. It starts a stock
+# solana-test-validator carrying Hylo's real mainnet accounts, cloned by hand,
+# so the adapter executes against the same bytes mainnet has.
 #
 #   ./scripts/localnet.sh 'https://your-mainnet-rpc'
 #
