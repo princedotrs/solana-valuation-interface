@@ -137,13 +137,53 @@ For a decoded view plus an independent off-chain cross-check:
 cargo run --manifest-path ../../tools/svi-e2e/Cargo.toml
 ```
 
-### If step 5 fails with `ContextUnavailable`
+### Deploy through the runbook, not the Solana CLI
 
-That is the design working, not a bug. `hylo-core` refuses to compute when
-Hylo's `TotalSolCache` epoch differs from the clock's — the epoch-boundary case
-where a naive adapter would publish a stale NAV. On a Surfnet this can happen
-if the forked clock and the cached state disagree. Restart the Surfnet to
-re-fork at the current slot.
+`svm::deploy_program` is the only deploy path this project uses against a
+Surfnet. `solana program deploy` does not work there and fails in two ways that
+are easy to misread:
+
+```
+Should return a valid tpu client: Custom("Failed find any cluster node info
+for upcoming leaders, timeout: 20s.")
+
+Error: Account allocation failed: ... Instruction 2: invalid instruction data
+Program BPFLoaderUpgradeab1e... failed: invalid instruction data
+```
+
+The CLI wants TPU and gossip, which an RPC-only SVM does not serve, and it
+sends loader instructions Surfpool rejects. The dangerous part is what happens
+next: a failed redeploy leaves the *previous* binary in place and running, so
+a code change appears to have had no effect. If a program's behaviour did not
+change after a rebuild, check that the deploy actually succeeded before
+suspecting the code.
+
+### If step 5 fails with a refusal
+
+That is the design working, not a bug. Which refusal matters, because the
+remedies differ:
+
+| Error | Meaning | Remedy |
+|---|---|---|
+| `HyloCacheStale` (6011) | Hylo's `TotalSolCache` epoch ≠ the clock's | somebody must call Hylo's `update_lst_prices` for the new epoch |
+| `OracleStale` (6012) | Pyth publish time or posted slot outside Hylo's `oracle_interval_secs` | a Pyth push |
+| `OracleConfidenceTooWide` (6013) | Pyth confidence wider than Hylo's own tolerance | wait for the market to settle |
+| `ContextUnavailable` (6005) | anything `hylo-core` does not distinguish | read the log line |
+
+Every refusal logs the epochs, slots and timestamps behind it, since the code
+alone does not say by how much a value missed.
+
+`OracleStale` is the one to expect on a Surfnet, and it is an artefact of the
+fork rather than anything about Hylo. Surfpool clones the SOL/USD price account
+once at fork time and never updates it — Pyth prices move by pushed
+transactions, and a local fork has none — while the validator's clock keeps
+running in real time. So the oracle ages out of Hylo's window within roughly a
+minute of `surfpool start` and stays out.
+
+**Restart the Surfnet and run the runbook immediately.** A fork that has been
+up for hours cannot produce a publishable quote. Do not work around this by
+rewriting the price account: a NAV computed from a hand-edited oracle proves
+nothing, and this runbook exists to be evidence.
 
 *Fail stale, never fail wrong.*
 
