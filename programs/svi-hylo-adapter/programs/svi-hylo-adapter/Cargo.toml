@@ -56,7 +56,13 @@ hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e8
 # tests/surfnet.rs talks to a live Surfnet over RPC. These are the solana 2.x
 # client crates at the versions anchor 0.32's shim already pins, so nothing
 # here moves the program's own dependency graph.
-hylo-quotes = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
+#
+# NOT hylo-quotes, even though it is the obvious off-chain reference: it pulls
+# in hylo-squads-multisig-program, whose SmallVec types have no IdlBuild impl.
+# `anchor build` generates the IDL with `cargo test --features idl-build`, and
+# dev-dependencies are in that graph, so the feature unifies onto that crate
+# and its AnchorSerialize derives fail with 18 E0599s. The test mirrors
+# hylo-quotes' build_lst_exchange_context with hylo-core's own conversions.
 solana-rpc-client = "=2.3.13"
 solana-rpc-client-api = "=2.3.13"
 solana-commitment-config = "=2.2.1"
