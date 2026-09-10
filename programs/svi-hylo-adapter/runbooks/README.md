@@ -182,16 +182,28 @@ Every refusal logs the epochs, slots and timestamps behind it, since the code
 alone does not say by how much a value missed.
 
 `OracleStale` is the one to expect on a Surfnet, and it is an artefact of the
-fork rather than anything about Hylo. Surfpool clones the SOL/USD price account
-once at fork time and never updates it — Pyth prices move by pushed
-transactions, and a local fork has none — while the validator's clock keeps
-running in real time. So the oracle ages out of Hylo's window within roughly a
-minute of `surfpool start` and stays out.
+fork rather than anything about Hylo. Hylo's oracle window is **10 seconds**,
+and hylo-core checks both `unix_timestamp <= publish_time + 10` and
+`posted_slot <= slot <= posted_slot + 25`. A Surfnet clones the Pyth account
+once and never updates it, its slot counter drifts from mainnet's (fixed 400 ms
+ticks vs. mainnet's real cadence) while its timestamp tracks wall time, and
+`surfnet_timeTravel` only moves forward, dragging the timestamp with the slot.
+On any Surfnet older than a few minutes those two constraints cannot both hold.
 
-**Restart the Surfnet and run the runbook immediately.** A fork that has been
-up for hours cannot produce a publishable quote. Do not work around this by
-rewriting the price account: a NAV computed from a hand-edited oracle proves
-nothing, and this runbook exists to be evidence.
+txtx has no clock cheatcodes, so this runbook cannot fix that. The adapter's
+live test can, and it is the reference path for step 5:
+
+```bash
+cd programs/svi-hylo-adapter
+cargo test --test surfnet -- --nocapture
+```
+
+It re-clones Hylo's three accounts from mainnet, pauses the Surfnet clock,
+pins the Clock sysvar to the snapshot's own `posted_slot + 1` /
+`publish_time + 1` for the one instruction that reads it, and resumes. That is
+the refresh evaluated exactly as a fork taken at `posted_slot` would evaluate
+it; no Hylo or Pyth byte is altered, and a NAV computed from a hand-edited
+oracle would prove nothing.
 
 *Fail stale, never fail wrong.*
 
