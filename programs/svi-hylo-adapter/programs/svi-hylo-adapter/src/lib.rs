@@ -13,6 +13,7 @@
 pub mod constants;
 pub mod cpi;
 pub mod error;
+pub mod idl_bridge;
 pub mod instructions;
 pub mod state;
 
