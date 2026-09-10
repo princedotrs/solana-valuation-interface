@@ -6,7 +6,9 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.89.0"
+# Must not exceed the rustc bundled with Solana platform-tools (1.84.1),
+# or `anchor build` refuses the package before compiling it.
+rust-version = "1.84.0"
 
 [profile.release]
 overflow-checks = true
