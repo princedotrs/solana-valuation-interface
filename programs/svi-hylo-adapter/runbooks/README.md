@@ -7,9 +7,21 @@
 Deploy both programs and publish a real xSOL NAV quote, in one command.
 
 ```bash
-surfpool start          # one shell: forks mainnet
-surfpool run publish    # another
+surfpool start                                     # one shell: forks mainnet
+surfpool run publish --env localnet --unsupervised # another
 ```
+
+**`--env localnet` is required.** Signer files are named `signers.<env>.tx`,
+and txtx skips any file whose name has three dot-components unless the middle
+one matches the selected environment. Without `--env` the signers are silently
+not loaded and every action fails with `unable to resolve 'signer.payer'`.
+There is no default: surfpool passes `Option<String>` straight through.
+
+`--unsupervised` skips the interactive confirmation prompt. Omit it if you want
+to approve each step; keep it for a recording or for CI.
+
+Alternatively, `surfpool start --watch` re-runs the runbook whenever the
+programs recompile, and supplies both settings itself.
 
 Against a Surfnet this runs on **forked mainnet**, so the adapter reads Hylo's
 actual account bytes. Nothing is mocked and nothing needs cloning by hand —
