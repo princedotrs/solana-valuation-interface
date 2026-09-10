@@ -7,9 +7,19 @@
 Deploy both programs and publish a real xSOL NAV quote, in one command.
 
 ```bash
+# build BOTH programs first -- they are separate Anchor workspaces
+cd programs/svi-core          && anchor build
+cd ../svi-hylo-adapter        && anchor build
+
 surfpool start                                     # one shell: forks mainnet
 surfpool run publish --env localnet --unsupervised # another
 ```
+
+The two programs live in separate Anchor workspaces, so `svi-core`'s artifacts
+are not under this project's `./target`. The runbook passes its keypair, IDL
+and binary paths explicitly; the adapter's use the defaults. If you see
+`invalid anchor idl location ./target/idl/svi_core.json`, svi-core has not been
+built yet.
 
 **`--env localnet` is required.** Signer files are named `signers.<env>.tx`,
 and txtx skips any file whose name has three dot-components unless the middle
