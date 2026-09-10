@@ -165,13 +165,19 @@ async fn main() -> Result<()> {
         if !executable {
             bail!(
                 "{name} ({id}) is not deployed on this validator.\n\n\
-                 Deploy both programs first:\n\n  \
-                 solana program deploy \\\n    \
-                 --url {url} \\\n    \
-                 --program-id {dir}/target/deploy/{so}-keypair.json \\\n    \
-                 {dir}/target/deploy/{so}.so\n\n\
-                 Or run the runbook, which deploys and publishes in one pass:\n  \
-                 cd programs/svi-hylo-adapter && surfpool run publish --env localnet --unsupervised"
+                 Deploy with the runbook, which deploys both programs and then\n\
+                 publishes -- making this tool unnecessary unless you want to\n\
+                 bypass txtx:\n\n  \
+                 cd programs/svi-hylo-adapter\n  \
+                 surfpool run publish --env localnet --unsupervised\n\n\
+                 Do not reach for `solana program deploy` against a Surfnet. The\n\
+                 CLI wants TPU and gossip, which an RPC-only SVM does not serve,\n\
+                 and it sends loader instructions Surfpool rejects:\n  \
+                 `Failed find any cluster node info for upcoming leaders`\n  \
+                 `Account allocation failed: ... invalid instruction data`\n\
+                 The second one leaves the old binary in place and running, so a\n\
+                 failed redeploy looks exactly like a code change that did nothing.\n\n\
+                 Expected artifacts: {dir}/target/deploy/{so}.so"
             );
         }
     }
