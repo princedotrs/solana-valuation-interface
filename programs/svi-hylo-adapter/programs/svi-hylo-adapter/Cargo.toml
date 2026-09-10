@@ -30,6 +30,9 @@ anchor-lang = "=0.32.1"
 hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f", features = ["offchain"] }
 hylo-idl = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
 hylo-fix = "0.8.0"
+# The wire format for calling svi-core. Zero dependencies, so it imposes no
+# version constraint of its own — which is the entire reason it exists.
+svi-abi = { path = "../../../../crates/svi-abi" }
 pyth-solana-receiver-sdk = "1.2.0"
 anchor-spl = "=0.32.1"
 # Anchor 0.32's solana_program shim is assembled from granular crates and does
