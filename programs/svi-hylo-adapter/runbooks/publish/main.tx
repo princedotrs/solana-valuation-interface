@@ -19,27 +19,38 @@
 # and the args, then name each account as its own block. Anything omitted --
 # system_program, sysvars -- is derived from the IDL.
 #
-# PUBKEYS IN instruction_args GO IN AS-IS. Do not convert them.
+# PUBKEYS IN instruction_args: the rule, read from txtx 0.3.8's source rather
+# than from its declared types, which are wrong in both directions.
 #
-# Both forms this runbook produces are already base58 strings at runtime:
+#   action.*.program_id   declared Type::string(), but deploy_program stores
+#                         SvmValue::pubkey(bytes) -- a Value::Addon of raw
+#                         bytes (deploy_program.rs:394). MUST be wrapped in
+#                         std::encode_base58, which takes an Addon's bytes and
+#                         returns the base58 string.
 #
-#   action.*.program_id   Type::string().
-#   variable.*.pda        declared Type::addon(SVM_PUBKEY), but the value that
-#                         reaches an argument is the base58 string. Passing it
-#                         through std::encode_base58 makes that function try to
-#                         HEX-decode base58: "failed to decode hex string
-#                         288zBibx...: Invalid character 'z' at position 3"
-#                         (288zBibx... is the adapter authority PDA).
+#   variable.*.pda        declared Type::addon(SVM_PUBKEY), but find_pda
+#                         returns Value::string(pda.to_string()) -- already
+#                         base58 (functions.rs, FindPda::run). Pass it straight
+#                         through. Wrapping it makes encode_base58 hex-decode a
+#                         base58 string: "Invalid character 'z' at position 3".
 #
-# What must NOT appear here is a value that is genuinely raw bytes -- notably
-# svm::default_pubkey(). txtx 0.3.8's borsh encoder matches on the VALUE before
-# the IDL type, so Value::Addon short-circuits into borsh_encode_bytes_to_idl_type,
-# which implements only IdlType::U8 and hits a todo!() for IdlType::Pubkey. That
-# panics the CLI with "not yet implemented" and never says which argument did it.
-# Hence the literal "11111111111111111111111111111111" for quote_mint.
+#   quote_mint            the system program, given as 0x + 64 hex zeros and
+#                         NOT as "111...1". SvmValue::to_pubkey tries hex first,
+#                         and 32 ones are valid hex: 16 bytes, then hex[0..32]
+#                         panics with an index out of range.
 #
-# Account blocks are unaffected -- their public_key goes through
-# SvmValue::to_pubkey directly and accepts either form.
+# Why raw bytes cannot be passed: the borsh encoder matches on the VALUE before
+# the IDL type, so Value::Addon short-circuits into
+# borsh_encode_bytes_to_idl_type, which implements only IdlType::U8 and hits a
+# todo!() for IdlType::Pubkey. That is the "not yet implemented" panic at
+# idl/mod.rs:539, and it never says which argument caused it. A String reaches
+# IdlType::Pubkey => SvmValue::to_pubkey, which works.
+#
+# Account blocks and find_pda's program argument are unaffected: both go
+# through SvmValue::to_pubkey directly, which accepts either form.
+#
+# This is verified offline against the real IDLs by tools/txtx-encode-check,
+# which runs txtx's own encoder on these exact value shapes.
 ################################################################
 
 addon "svm" {
@@ -175,11 +186,11 @@ action "initialize_feed" "svm::process_instructions" {
         instruction_name = "initialize_feed"
         instruction_args = [{
             feed_id             = variable.feed_id,
-            adapter_program     = action.deploy_adapter.program_id,
+            adapter_program     = std::encode_base58(action.deploy_adapter.program_id),
             adapter_authority   = variable.adapter_authority.pda,
             adapter_config      = variable.adapter_config.pda,
             base_mint           = variable.xsol_mint,
-            quote_mint          = "11111111111111111111111111111111",
+            quote_mint          = "0x0000000000000000000000000000000000000000000000000000000000000000",
             methodology_hash    = variable.methodology_hash,
             max_age_slots       = 750,
             quote_currency_code = 840,
@@ -217,7 +228,7 @@ action "initialize_adapter" "svm::process_instructions" {
         program_idl = action.deploy_adapter.program_idl
         instruction_name = "initialize"
         instruction_args = [{
-            svi_core_program = action.deploy_svi_core.program_id,
+            svi_core_program = std::encode_base58(action.deploy_svi_core.program_id),
             descriptor       = variable.descriptor.pda,
             quote            = variable.quote.pda,
             methodology_hash = variable.methodology_hash,
