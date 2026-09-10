@@ -84,19 +84,25 @@ Three traps, none guessable from the error text:
 blows past the 32-byte limit. That is why `feed_id` and `feed_id_seed` both
 exist, with an assertion that they agree.
 
-**Pubkeys in `instruction_args` must be base58 strings — but only some need
-converting**, and converting the wrong one also fails:
+**Pubkeys in `instruction_args` go in as-is.** Both forms this runbook
+produces are already base58 strings by the time they reach an argument:
 
-| Value | Type | Form |
+| Value | Declared type | Form at runtime |
 |---|---|---|
-| `action.*.program_id` | `Type::string()` | pass straight through |
-| `variable.*.pda` | `Type::addon(SVM_PUBKEY)` | wrap in `std::encode_base58` |
+| `action.*.program_id` | `Type::string()` | base58 string |
+| `variable.*.pda` | `Type::addon(SVM_PUBKEY)` | base58 string |
 
-`std::encode_base58` converts *bytes* to base58. Give it something already
-base58 and it tries to hex-decode it: `Invalid character 'z' at position 3`.
+The declared type of `find_pda(...).pda` is misleading — `svm::find_pda`'s own
+doc example wraps it in `std::encode_base58`, which does not work here.
+`std::encode_base58` hex-decodes its input, so handing it base58 fails on the
+first non-hex character: `failed to decode hex string 288zBibx...: Invalid
+character 'z' at position 3`. That pubkey is the adapter authority PDA
+(`find_pda(adapter, ["authority"])`, bump 254), which is how the failing
+argument was identified.
 
-Raw bytes cannot be passed directly because txtx 0.3.8's borsh encoder matches
-on the value before the IDL type:
+What must never appear in `instruction_args` is a value that really is raw
+bytes — `svm::default_pubkey()` being the one this runbook used to call.
+txtx 0.3.8's borsh encoder matches on the value before the IDL type:
 
 ```rust
 Value::Addon(addon_data) => return borsh_encode_bytes_to_idl_type(...),
@@ -104,8 +110,9 @@ Value::Addon(addon_data) => return borsh_encode_bytes_to_idl_type(...),
 
 and that function implements only `IdlType::U8`, hitting a `todo!()` for
 `IdlType::Pubkey`. The CLI panics with `not yet implemented` and no indication
-of which argument did it. Account blocks are unaffected — their `public_key`
-goes through `SvmValue::to_pubkey` and takes either form.
+of which argument did it. `quote_mint` is therefore the literal
+`"11111111111111111111111111111111"`. Account blocks are unaffected — their
+`public_key` goes through `SvmValue::to_pubkey` and takes either form.
 
 ### Addresses
 
