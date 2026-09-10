@@ -19,21 +19,24 @@
 # and the args, then name each account as its own block. Anything omitted --
 # system_program, sysvars -- is derived from the IDL.
 #
-# PUBKEYS IN instruction_args MUST BE BASE58 STRINGS -- but only some of them
-# need converting, and converting the wrong one fails too:
+# PUBKEYS IN instruction_args GO IN AS-IS. Do not convert them.
 #
-#   action.*.program_id   already Type::string(). Pass it straight through.
-#                         Wrapping it in encode_base58 makes that function try
-#                         to HEX-decode a base58 string: "Invalid character
-#                         'z' at position 3".
-#   variable.*.pda        Type::addon(SVM_PUBKEY), i.e. raw bytes. Must be
-#                         wrapped in std::encode_base58.
+# Both forms this runbook produces are already base58 strings at runtime:
 #
-# The reason raw bytes cannot be passed directly: txtx 0.3.8's borsh encoder
-# matches on the VALUE before the IDL type, so Value::Addon short-circuits into
-# borsh_encode_bytes_to_idl_type, which implements only IdlType::U8 and hits a
-# todo!() for IdlType::Pubkey. That panics the CLI with "not yet implemented"
-# and no indication of which argument caused it.
+#   action.*.program_id   Type::string().
+#   variable.*.pda        declared Type::addon(SVM_PUBKEY), but the value that
+#                         reaches an argument is the base58 string. Passing it
+#                         through std::encode_base58 makes that function try to
+#                         HEX-decode base58: "failed to decode hex string
+#                         288zBibx...: Invalid character 'z' at position 3"
+#                         (288zBibx... is the adapter authority PDA).
+#
+# What must NOT appear here is a value that is genuinely raw bytes -- notably
+# svm::default_pubkey(). txtx 0.3.8's borsh encoder matches on the VALUE before
+# the IDL type, so Value::Addon short-circuits into borsh_encode_bytes_to_idl_type,
+# which implements only IdlType::U8 and hits a todo!() for IdlType::Pubkey. That
+# panics the CLI with "not yet implemented" and never says which argument did it.
+# Hence the literal "11111111111111111111111111111111" for quote_mint.
 #
 # Account blocks are unaffected -- their public_key goes through
 # SvmValue::to_pubkey directly and accepts either form.
@@ -173,8 +176,8 @@ action "initialize_feed" "svm::process_instructions" {
         instruction_args = [{
             feed_id             = variable.feed_id,
             adapter_program     = action.deploy_adapter.program_id,
-            adapter_authority   = std::encode_base58(variable.adapter_authority.pda),
-            adapter_config      = std::encode_base58(variable.adapter_config.pda),
+            adapter_authority   = variable.adapter_authority.pda,
+            adapter_config      = variable.adapter_config.pda,
             base_mint           = variable.xsol_mint,
             quote_mint          = "11111111111111111111111111111111",
             methodology_hash    = variable.methodology_hash,
@@ -215,8 +218,8 @@ action "initialize_adapter" "svm::process_instructions" {
         instruction_name = "initialize"
         instruction_args = [{
             svi_core_program = action.deploy_svi_core.program_id,
-            descriptor       = std::encode_base58(variable.descriptor.pda),
-            quote            = std::encode_base58(variable.quote.pda),
+            descriptor       = variable.descriptor.pda,
+            quote            = variable.quote.pda,
             methodology_hash = variable.methodology_hash,
             sdk_revision     = variable.sdk_revision,
             max_band_bps     = 500
