@@ -49,6 +49,19 @@ Per `hylo-quotes::protocol_state::ProtocolAccounts`, the SOL-pool computation re
 
 The adapter MUST verify owner, PDA derivation, and mint addresses for every account before deserialization. Any mismatch → abort, no write.
 
+> **Update, 2026-09-10 — partially answered by reading the SDK.**
+> `hylo-quotes::RpcStateProvider::fetch_lst_context` shows the SOL-pool
+> computation needs only **four** accounts, not the seven enumerated above:
+> Hylo protocol state (`pda::HYLO`), the xSOL mint, the Pyth SOL/USD feed, and
+> the Clock sysvar. The LST headers and vaults in rows 2 and 5 are read
+> transitively through `Hylo.total_sol_cache` and `Hylo.virtual_stablecoin`
+> rather than passed separately. Two further findings: the Pyth feed to use is
+> named by `Hylo.sol_usd_oracle` in Hylo's own state, so the adapter checks
+> against that rather than a hardcoded feed ID; and `Hylo.protocol_paused` /
+> `Hylo.lst_pair_paused` exist and are worth surfacing as status flags.
+> Verified against mainnet — see
+> [`docs/validation/2026-09-10-xsol-nav-mainnet.md`](validation/2026-09-10-xsol-nav-mainnet.md).
+
 `[CONFIRM WITH HYLO]` — canonical enumeration of live LST registry entries and whether the V2 (multi-pool) layout will change any of the above before Q4 2026.
 
 ## 4. Computation
