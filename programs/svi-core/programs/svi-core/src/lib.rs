@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+pub mod abi;
 pub mod error;
 pub mod state;
 
@@ -143,7 +144,7 @@ pub struct InitFeedParams {
     pub quote_decimals: u8,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct QuoteUpdate {
     pub base_amount: u64,
     pub quote_amount: u64,
