@@ -30,13 +30,25 @@ addon "svm" {
 # 1. Programs
 ################################################################
 
+# svi-core lives in its own Anchor workspace, so its artifacts are NOT under
+# this project's ./target. The defaults (./target/{deploy,idl}/...) resolve
+# relative to txtx.yml, so all three paths are given explicitly.
+#
+# Build it first, or this fails with "invalid anchor idl location":
+#   cd ../svi-core && anchor build
 action "deploy_svi_core" "svm::deploy_program" {
     description = "Deploy svi-core, the notice board"
-    program = svm::get_program_from_anchor_project("svi_core")
+    program = svm::get_program_from_anchor_project(
+        "svi_core",
+        "../svi-core/target/deploy/svi_core-keypair.json",
+        "../svi-core/target/idl/svi_core.json",
+        "../svi-core/target/deploy/svi_core.so"
+    )
     authority = signer.authority
     payer = signer.payer
 }
 
+# This one IS in this workspace, so the defaults apply.
 action "deploy_adapter" "svm::deploy_program" {
     description = "Deploy svi-hylo-adapter, the calculator"
     program = svm::get_program_from_anchor_project("svi_hylo_adapter")
