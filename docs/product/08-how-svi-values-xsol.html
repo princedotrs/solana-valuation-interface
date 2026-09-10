@@ -1,0 +1,546 @@
+<title>How SVI Values xSOL</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --ground: #F3F4F8;
+    --surface: #FFFFFF;
+    --ink: #1A1F2E;
+    --ink-2: #4B5163;
+    --ink-3: #7A8194;
+    --line: #D9DCE6;
+    --svi: #6B4FD8;
+    --svi-soft: #EDE9FB;
+    --quote: #C9861A;
+    --quote-soft: #FBF1DF;
+    --state: #7A8194;
+    --state-soft: #EBEDF2;
+    --consumer: #2F6FDB;
+    --consumer-soft: #E4EDFB;
+    --refuse: #B4322F;
+    --refuse-soft: #FBE7E6;
+    --ok: #2E7D4F;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12141C; --surface: #1A1D28; --ink: #E6E8F0; --ink-2: #B4B9C9; --ink-3: #848BA0;
+      --line: #2C3040; --svi: #9F8BF0; --svi-soft: #26204A; --quote: #E2A54A; --quote-soft: #3A2D14;
+      --state: #9AA1B4; --state-soft: #232633; --consumer: #6FA0F2; --consumer-soft: #1A2740;
+      --refuse: #E5736F; --refuse-soft: #3D1F1E; --ok: #63C48B;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12141C; --surface: #1A1D28; --ink: #E6E8F0; --ink-2: #B4B9C9; --ink-3: #848BA0;
+    --line: #2C3040; --svi: #9F8BF0; --svi-soft: #26204A; --quote: #E2A54A; --quote-soft: #3A2D14;
+    --state: #9AA1B4; --state-soft: #232633; --consumer: #6FA0F2; --consumer-soft: #1A2740;
+    --refuse: #E5736F; --refuse-soft: #3D1F1E; --ok: #63C48B;
+  }
+
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px; line-height: 1.6;
+    padding-block: 48px 96px; padding-inline: 20px;
+  }
+  .page { max-width: 960px; margin: 0 auto; }
+  .prose { max-width: 68ch; }
+  h1, h2, h3 {
+    font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700; line-height: 1.1; text-wrap: balance; letter-spacing: -0.01em;
+  }
+  h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); margin: 0 0 12px; }
+  h2 { font-size: 1.7rem; margin: 64px 0 12px; }
+  h3 { font-size: 1.15rem; margin: 28px 0 8px; font-weight: 500; }
+  p { margin: 0 0 16px; }
+  .lede { font-size: 1.2rem; color: var(--ink-2); max-width: 60ch; }
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px;
+  }
+  code, .mono {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 0.86em;
+    font-variant-numeric: tabular-nums;
+  }
+  code { background: var(--state-soft); padding: 1px 5px; border-radius: 3px; }
+  strong { font-weight: 600; }
+  a { color: var(--consumer); }
+
+  .answer {
+    border-left: 4px solid var(--quote); background: var(--quote-soft);
+    padding: 16px 20px; margin: 24px 0 8px; max-width: 68ch;
+  }
+  .answer p:last-child { margin: 0; }
+
+  figure { margin: 28px 0 40px; }
+  figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); }
+  .fig-wrap { overflow-x: auto; }
+  figcaption { font-size: 0.92rem; color: var(--ink-2); margin-top: 10px; max-width: 68ch; }
+
+  .example {
+    background: var(--surface); border: 1px solid var(--line); padding: 16px 20px;
+    margin: 16px 0 24px; max-width: 68ch;
+  }
+  .example .eyebrow { margin-bottom: 6px; }
+  .example p { margin: 0 0 8px; }
+  .example p:last-child { margin: 0; }
+  .calc { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; align-items: baseline; margin: 8px 0; }
+  .calc .k { color: var(--ink-3); font-size: 0.9rem; }
+  .calc .v { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+
+  ol.steps { list-style: none; padding: 0; margin: 20px 0; counter-reset: step; max-width: 68ch; }
+  ol.steps > li { display: grid; grid-template-columns: 44px 1fr; gap: 0 16px; padding: 18px 0; border-top: 1px solid var(--line); }
+  ol.steps > li::before {
+    counter-increment: step; content: counter(step);
+    font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 1.6rem;
+    color: var(--svi); line-height: 1;
+  }
+  ol.steps > li:last-child { border-bottom: 1px solid var(--line); }
+  ol.steps h3 { margin: 0 0 6px; }
+  ol.steps p { margin: 0 0 8px; }
+  .who { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--ink-3); letter-spacing: 0.04em; margin-bottom: 4px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; margin: 12px 0 24px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: "Bricolage Grotesque", sans-serif; font-weight: 500; color: var(--ink-2); font-size: 0.9rem; }
+  td .mono { font-size: 0.85rem; }
+  .tbl-wrap { overflow-x: auto; }
+
+  .pill { display: inline-block; font-family: "JetBrains Mono", monospace; font-size: 11px; padding: 2px 8px; border-radius: 999px; letter-spacing: 0.04em; }
+  .pill.svi { background: var(--svi-soft); color: var(--svi); }
+  .pill.quote { background: var(--quote-soft); color: var(--quote); }
+  .pill.state { background: var(--state-soft); color: var(--state); }
+  .pill.consumer { background: var(--consumer-soft); color: var(--consumer); }
+  .pill.refuse { background: var(--refuse-soft); color: var(--refuse); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 0.9rem; color: var(--ink-2); margin: 8px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .legend .l-state::before { background: var(--state); }
+  .legend .l-svi::before { background: var(--svi); }
+  .legend .l-quote::before { background: var(--quote); }
+  .legend .l-consumer::before { background: var(--consumer); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 68ch; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+  .status h3 { margin-top: 0; }
+  ul { padding-left: 20px; margin: 0 0 16px; }
+  li { margin-bottom: 4px; }
+  .foot { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 0.9rem; }
+</style>
+
+<div class="page">
+  <div class="eyebrow">Solana Valuation Interface · feed hylo-xsol-nav-v1 · 10 Sep 2026</div>
+  <h1>How SVI Values xSOL</h1>
+  <p class="lede">Where the number comes from, who touches it on the way, and why no one has to be trusted with the arithmetic. Every figure on this page is from the first on-chain publication earlier today.</p>
+
+  <div class="prose">
+    <div class="answer">
+      <div class="eyebrow">The Pyth question</div>
+      <p><strong>SVI depends on Pyth. Pyth does not depend on SVI — not yet.</strong> Pyth answers one question, “what is 1 SOL worth in dollars right now”, and gets it from exchanges. The value of xSOL is <em>calculated</em> from that answer plus Hylo's own books. So Pyth is upstream of us, and we are upstream of lenders. What could flip in future is the other direction: once SVI publishes xSOL's value on-chain, an oracle network could consume it to offer an “xSOL/USD” feed — that would be Pyth depending on us, for xSOL.</p>
+    </div>
+
+    <h2>What xSOL is, in one example</h2>
+    <p>Hylo takes in SOL (as liquid-staked SOL) and issues two tokens against it. <strong>hyUSD</strong> is a stablecoin: always worth $1. <strong>xSOL</strong> is what's left over — it owns everything in the vault that isn't owed to hyUSD holders. That makes xSOL a leveraged claim on SOL: when SOL moves 1%, xSOL moves about 2.5%.</p>
+    <p>So xSOL's fair value is not a market opinion. It's a subtraction:</p>
+  </div>
+
+  <div class="example">
+    <div class="eyebrow">Example · the state SVI read at slot 445 953 444</div>
+    <div class="calc">
+      <span class="k">SOL price (Pyth)</span><span class="v">≈ $212 per SOL</span>
+      <span class="k">Hylo's collateral</span><span class="v">≈ 120,000 SOL ≈ $25.4M</span>
+      <span class="k">owed to hyUSD holders</span><span class="v">≈ $15.4M</span>
+      <span class="k">left for xSOL holders</span><span class="v">≈ $10.0M</span>
+      <span class="k">xSOL in circulation</span><span class="v">≈ 166.27M</span>
+      <span class="k">value of 1 xSOL</span><span class="v">$10.0M ÷ 166.27M = <strong>$0.060285498</strong></span>
+    </div>
+    <p>Collateral ratio $25.4M ÷ $15.4M = <span class="mono">1.65×</span>; leverage $25.4M ÷ $10.0M = <span class="mono">2.5×</span>. Those two ratios are what Hylo's rebalance zones and SVI's status flags are about. The exact figures use Hylo's integer math; the rounded ones here are for reading.</p>
+  </div>
+
+  <div class="prose">
+    <p>Notice what the formula needs: the SOL price (from Pyth), and Hylo's books (from Hylo's on-chain accounts). Nothing else. And notice what nobody publishes: the <em>result</em>. Hylo's website computes it in your browser; no on-chain account holds it. A lending protocol that wants to accept xSOL as collateral has had two bad options — trust an off-chain server, or use the DEX price, which a trader with a few million dollars can move. <strong>SVI's job is to compute that result on-chain and put it in a public account.</strong></p>
+
+    <h2>Who depends on whom</h2>
+  </div>
+
+  <figure>
+    <div class="fig-wrap">
+    <svg viewBox="0 0 960 190" role="img" aria-label="Dependency chain: exchanges feed Pyth's SOL/USD price; Pyth and Hylo's own accounts feed SVI's adapter; SVI writes a quote account that lenders, wallets and, in future, oracle networks read.">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-family="Bricolage Grotesque, sans-serif" font-size="13" font-weight="500">
+        <!-- exchanges -->
+        <rect x="10" y="60" width="130" height="56" rx="4" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="75" y="84" text-anchor="middle" fill="currentColor">Exchanges</text>
+        <text x="75" y="102" text-anchor="middle" fill="var(--ink-3)" font-size="11">SOL trades</text>
+        <!-- pyth -->
+        <rect x="200" y="60" width="140" height="56" rx="4" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="270" y="84" text-anchor="middle" fill="currentColor">Pyth</text>
+        <text x="270" y="102" text-anchor="middle" fill="var(--ink-3)" font-size="11">SOL/USD, every ~1s</text>
+        <!-- hylo -->
+        <rect x="200" y="130" width="140" height="50" rx="4" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="270" y="151" text-anchor="middle" fill="currentColor">Hylo's accounts</text>
+        <text x="270" y="168" text-anchor="middle" fill="var(--ink-3)" font-size="11">collateral · debt · supply</text>
+        <!-- svi -->
+        <rect x="410" y="60" width="150" height="120" rx="4" fill="var(--svi-soft)" stroke="var(--svi)"/>
+        <text x="485" y="106" text-anchor="middle" fill="currentColor">SVI</text>
+        <text x="485" y="124" text-anchor="middle" fill="var(--ink-3)" font-size="11">runs Hylo's formula</text>
+        <text x="485" y="139" text-anchor="middle" fill="var(--ink-3)" font-size="11">on-chain</text>
+        <!-- quote -->
+        <rect x="620" y="92" width="120" height="56" rx="4" fill="var(--quote-soft)" stroke="var(--quote)"/>
+        <text x="680" y="116" text-anchor="middle" fill="currentColor">Quote account</text>
+        <text x="680" y="134" text-anchor="middle" fill="var(--ink-3)" font-size="11">$0.060285498</text>
+        <!-- consumers -->
+        <rect x="810" y="20" width="140" height="40" rx="4" fill="var(--consumer-soft)" stroke="var(--consumer)"/>
+        <text x="880" y="45" text-anchor="middle" fill="currentColor">Lending protocols</text>
+        <rect x="810" y="100" width="140" height="40" rx="4" fill="var(--consumer-soft)" stroke="var(--consumer)"/>
+        <text x="880" y="125" text-anchor="middle" fill="currentColor">Wallets, dashboards</text>
+        <rect x="810" y="180" width="140" height="0" fill="none"/>
+        <rect x="810" y="150" width="140" height="36" rx="4" fill="none" stroke="var(--consumer)" stroke-dasharray="4 3"/>
+        <text x="880" y="167" text-anchor="middle" fill="var(--ink-3)" font-size="11">oracle networks (future)</text>
+        <text x="880" y="180" text-anchor="middle" fill="var(--ink-3)" font-size="10">Pyth · Switchboard xSOL feed</text>
+      </g>
+      <g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#arr)">
+        <line x1="140" y1="88" x2="198" y2="88"/>
+        <line x1="340" y1="88" x2="408" y2="88"/>
+        <line x1="340" y1="155" x2="408" y2="155"/>
+        <line x1="560" y1="120" x2="618" y2="120"/>
+        <line x1="740" y1="110" x2="808" y2="45"/>
+        <line x1="740" y1="120" x2="808" y2="120"/>
+        <line x1="740" y1="130" x2="808" y2="165" stroke-dasharray="4 3"/>
+      </g>
+      <g font-family="JetBrains Mono, monospace" font-size="10" fill="var(--ink-3)">
+        <text x="169" y="80" text-anchor="middle">price</text>
+        <text x="374" y="80" text-anchor="middle">input</text>
+        <text x="374" y="147" text-anchor="middle">input</text>
+        <text x="589" y="112" text-anchor="middle">writes</text>
+        <text x="774" y="136" text-anchor="middle">reads</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption>Data flows left to right. SVI sits after Pyth, not before it; an arrow into the dashed box is the only one that doesn't exist yet.</figcaption>
+  </figure>
+
+  <div class="prose">
+    <p>One consequence worth saying plainly before any video: <strong>our quote can never be fresher than the SOL price it was computed from.</strong> Hylo's own rule is that a SOL price older than 10 seconds is unusable, and SVI inherits that rule unchanged — the adapter refuses to publish rather than publish from a stale input.</p>
+
+    <h2>The whole system</h2>
+    <p>Four kinds of things, in four colours. Grey already exists on Solana and SVI changes none of it. Violet is what SVI deploys. Amber is the product: one account. Blue is anyone who reads it.</p>
+  </div>
+
+  <figure>
+    <div class="fig-wrap">
+    <svg viewBox="0 0 960 570" role="img" aria-label="Full architecture: a keeper sends a transaction to the svi-hylo-adapter; the adapter reads Hylo's state, the xSOL mint, Pyth SOL/USD and the clock, computes NAV with hylo-core, and calls svi-core over a fixed byte ABI signed by its PDA; svi-core is the only writer of the 320-byte quote account; lenders, wallets, an independent observer and a mirror API read the account.">
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-family="Bricolage Grotesque, sans-serif" font-size="13" font-weight="500">
+        <!-- band labels -->
+        <g font-family="JetBrains Mono, monospace" font-size="10" fill="var(--ink-3)" letter-spacing="1">
+          <text x="10" y="20">EXISTING ON-CHAIN STATE — READ ONLY</text>
+          <text x="10" y="200">SVI PROGRAMS</text>
+          <text x="10" y="380">THE PRODUCT</text>
+          <text x="610" y="380">CONSUMERS</text>
+        </g>
+        <!-- existing state -->
+        <rect x="10" y="30" width="170" height="70" rx="4" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="95" y="54" text-anchor="middle" fill="currentColor">Hylo state PDA</text>
+        <text x="95" y="71" text-anchor="middle" fill="var(--ink-3)" font-size="11">collateral cache · fees</text>
+        <text x="95" y="86" text-anchor="middle" fill="var(--ink-3)" font-size="11">oracle config · zones</text>
+        <rect x="200" y="30" width="150" height="70" rx="4" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="275" y="54" text-anchor="middle" fill="currentColor">xSOL mint</text>
+        <text x="275" y="71" text-anchor="middle" fill="var(--ink-3)" font-size="11">supply 166.27M</text>
+        <text x="275" y="86" text-anchor="middle" fill="var(--ink-3)" font-size="11">6 decimals</text>
+        <rect x="370" y="30" width="160" height="70" rx="4" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="450" y="54" text-anchor="middle" fill="currentColor">Pyth SOL/USD</text>
+        <text x="450" y="71" text-anchor="middle" fill="var(--ink-3)" font-size="11">price · confidence</text>
+        <text x="450" y="86" text-anchor="middle" fill="var(--ink-3)" font-size="11">publish time · slot</text>
+        <rect x="550" y="30" width="110" height="70" rx="4" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="605" y="54" text-anchor="middle" fill="currentColor">Clock</text>
+        <text x="605" y="71" text-anchor="middle" fill="var(--ink-3)" font-size="11">slot · epoch</text>
+        <text x="605" y="86" text-anchor="middle" fill="var(--ink-3)" font-size="11">unix time</text>
+
+        <!-- keeper -->
+        <rect x="760" y="30" width="190" height="70" rx="4" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+        <text x="855" y="54" text-anchor="middle" fill="currentColor">Keeper</text>
+        <text x="855" y="71" text-anchor="middle" fill="var(--ink-3)" font-size="11">anyone · pays the fee</text>
+        <text x="855" y="86" text-anchor="middle" fill="var(--ink-3)" font-size="11">cannot influence the value</text>
+
+        <!-- adapter -->
+        <rect x="10" y="210" width="400" height="120" rx="4" fill="var(--svi-soft)" stroke="var(--svi)" stroke-width="1.5"/>
+        <text x="30" y="236" fill="currentColor" font-weight="700">svi-hylo-adapter</text>
+        <text x="30" y="254" fill="var(--ink-3)" font-size="11">the calculator</text>
+        <text x="30" y="278" fill="currentColor" font-size="12">1 verifies every account is the real one</text>
+        <text x="30" y="296" fill="currentColor" font-size="12">2 runs hylo-core: five freshness checks, then NAV</text>
+        <text x="30" y="314" fill="currentColor" font-size="12">3 bounds ≤ 500 bps, flags, then publish — or refuse</text>
+
+        <!-- core -->
+        <rect x="560" y="210" width="390" height="120" rx="4" fill="var(--svi-soft)" stroke="var(--svi)" stroke-width="1.5"/>
+        <text x="580" y="236" fill="currentColor" font-weight="700">svi-core</text>
+        <text x="580" y="254" fill="var(--ink-3)" font-size="11">the notice board · no arithmetic</text>
+        <text x="580" y="278" fill="currentColor" font-size="12">accepts a write only from the adapter's PDA</text>
+        <text x="580" y="296" fill="currentColor" font-size="12">named in the feed descriptor at creation</text>
+        <text x="580" y="314" fill="currentColor" font-size="12">stamps sequence + 1, valid_until = slot + 750</text>
+
+        <!-- quote -->
+        <rect x="10" y="390" width="400" height="150" rx="4" fill="var(--quote-soft)" stroke="var(--quote)" stroke-width="1.5"/>
+        <text x="30" y="416" fill="currentColor" font-weight="700">Quote account · 320 bytes</text>
+        <text x="30" y="434" fill="var(--ink-3)" font-size="11">G28Ba5F9X71Pih2SNobXyU98tjQdga1Ztbzqg3PU4rWj</text>
+        <g font-family="JetBrains Mono, monospace" font-size="11" fill="currentColor">
+          <text x="30" y="460">value     $0.060285498 per xSOL</text>
+          <text x="30" y="477">bounds    0.060285498 .. 0.060315053  (4.9 bps)</text>
+          <text x="30" y="494">observed  slot 445953445   valid_until 445954195</text>
+          <text x="30" y="511">sequence  1              flags BUY_ZONE</text>
+          <text x="30" y="528">writer    adapter PDA only · reader  anyone</text>
+        </g>
+
+        <!-- consumers -->
+        <rect x="610" y="390" width="160" height="60" rx="4" fill="var(--consumer-soft)" stroke="var(--consumer)"/>
+        <text x="690" y="414" text-anchor="middle" fill="currentColor">Lending protocol</text>
+        <text x="690" y="432" text-anchor="middle" fill="var(--ink-3)" font-size="11">reads lower bound · checks age</text>
+        <rect x="790" y="390" width="160" height="60" rx="4" fill="var(--consumer-soft)" stroke="var(--consumer)"/>
+        <text x="870" y="414" text-anchor="middle" fill="currentColor">Wallet, dashboard</text>
+        <text x="870" y="432" text-anchor="middle" fill="var(--ink-3)" font-size="11">shows the value</text>
+        <rect x="610" y="470" width="160" height="70" rx="4" fill="var(--consumer-soft)" stroke="var(--consumer)"/>
+        <text x="690" y="494" text-anchor="middle" fill="currentColor">Observer</text>
+        <text x="690" y="511" text-anchor="middle" fill="var(--ink-3)" font-size="11">recomputes from raw</text>
+        <text x="690" y="526" text-anchor="middle" fill="var(--ink-3)" font-size="11">accounts · must match</text>
+        <rect x="790" y="470" width="160" height="70" rx="4" fill="none" stroke="var(--consumer)" stroke-dasharray="4 3"/>
+        <text x="870" y="494" text-anchor="middle" fill="var(--ink-3)">Mirror API (planned)</text>
+        <text x="870" y="511" text-anchor="middle" fill="var(--ink-3)" font-size="11">serves the bytes, no math</text>
+      </g>
+      <g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#arr2)">
+        <!-- state into adapter -->
+        <line x1="95" y1="100" x2="95" y2="208"/>
+        <line x1="275" y1="100" x2="275" y2="208"/>
+        <line x1="450" y1="100" x2="380" y2="208"/>
+        <line x1="605" y1="100" x2="405" y2="208"/>
+        <!-- keeper into adapter -->
+        <path d="M760,65 C 700,65 480,140 420,208" stroke-dasharray="4 3"/>
+        <!-- adapter to core -->
+        <line x1="410" y1="284" x2="558" y2="284" stroke="var(--svi)" stroke-width="2.5"/>
+        <!-- core to quote -->
+        <path d="M600,330 C 600,370 300,340 260,388" stroke="var(--quote)" stroke-width="2.5"/>
+        <!-- quote to consumers -->
+        <line x1="410" y1="420" x2="608" y2="420"/>
+        <path d="M410,430 C 500,430 560,420 788,420"/>
+        <line x1="410" y1="500" x2="608" y2="500"/>
+        <!-- observer re-reads state -->
+        <path d="M690,540 L690,554 L986,554 L986,6 L450,6 L450,28" stroke-dasharray="2 3" stroke-linejoin="round"/>
+      </g>
+      <g font-family="JetBrains Mono, monospace" font-size="10" fill="var(--ink-3)">
+        <text x="10" y="128">the transaction passes these four in; the adapter checks each is the genuine one</text>
+        <text x="484" y="272" text-anchor="middle" fill="var(--svi)">CPI · signed by PDA</text>
+        <text x="612" y="352" fill="var(--quote)">the only write path</text>
+        <text x="500" y="412" text-anchor="middle">reads ~ a few hundred CU</text>
+        <text x="500" y="492" text-anchor="middle">reads</text>
+        <text x="700" y="22">observer re-reads the raw accounts itself</text>
+        <text x="690" y="150">keeper: just sends the tx</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption>The value is computed entirely inside the violet band and can only reach the amber account through one path: a cross-program call that the adapter's own program-derived address signs. Nothing off-chain is in the loop.</figcaption>
+    <div class="legend"><span class="l-state">exists already, unmodified</span><span class="l-svi">SVI programs</span><span class="l-quote">the product</span><span class="l-consumer">readers</span></div>
+  </figure>
+
+  <div class="prose">
+    <h2>What happens on one refresh</h2>
+    <p>This is the sequence that ran at 23:41 today. It takes one transaction and about 13,000 compute units.</p>
+  </div>
+
+  <ol class="steps">
+    <li>
+      <div>
+        <div class="who">keeper · anyone</div>
+        <h3>Send the transaction</h3>
+        <p>The keeper builds one instruction, <code>refresh_xsol_nav</code>, listing nine accounts: Hylo's state, the xSOL mint, Pyth SOL/USD, the feed descriptor, the quote account, the adapter's config and signing address, and svi-core. It pays the fee. That is its entire power.</p>
+        <p><em>Example:</em> the test used the default wallet in <code>~/.config/solana/id.json</code>. It could have been any wallet; the result would be byte-identical.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="who">svi-hylo-adapter</div>
+        <h3>Check that every account is the real one</h3>
+        <p>The keeper chose which accounts to pass in, so the adapter trusts none of them by position. Hylo's state must be owned by Hylo's program and sit at Hylo's known address. The mint must be xSOL. The Pyth account must be the one <em>Hylo's own state</em> names as its oracle — so the adapter cannot disagree with Hylo about which price is authoritative, by construction.</p>
+        <p><em>If a keeper passed a fake Pyth account with a flattering price,</em> step 2 fails with <code>OracleMismatch</code> and nothing is written.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="who">svi-hylo-adapter → hylo-core</div>
+        <h3>Ask Hylo's own code whether the state is usable</h3>
+        <p>The adapter hands the accounts to <code>hylo-core</code>, the same Rust library Hylo's program uses, pinned to one exact commit. It runs five checks: the collateral cache is from the current epoch, the Pyth update is fully verified, its publish time is within Hylo's 10-second window, its slot is within 25 slots, and its confidence interval is within Hylo's tolerance. SVI reimplements none of this.</p>
+        <p><em>Example from tonight:</em> publish time 1789065304, clock 1789065305 — one second old. Any check failing is a refusal with a specific code: <code>HyloCacheStale</code>, <code>OracleStale</code>, <code>OracleConfidenceTooWide</code>.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="who">svi-hylo-adapter → hylo-core</div>
+        <h3>Compute the value, twice</h3>
+        <p>Hylo quotes xSOL two ways: what you'd get <em>redeeming</em> one (floor, against the lower SOL price bound) and what you'd pay <em>minting</em> one (ceiling, against the upper bound). SVI publishes the redeem value as the headline — what a liquidator could actually realise — and both as the bounds.</p>
+        <div class="calc">
+          <span class="k">redeem NAV → value, lower</span><span class="v">$0.060285498</span>
+          <span class="k">mint NAV → upper</span><span class="v">$0.060315053</span>
+          <span class="k">band</span><span class="v">4.9 bps of value</span>
+        </div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="who">svi-hylo-adapter</div>
+        <h3>Decide: publish or refuse</h3>
+        <p>The band must be no wider than the feed's tolerance (500 bps). Bounds must be coherent. Then the adapter sets flags that describe the state honestly rather than hiding it: tonight's was <code>BUY_ZONE</code>, meaning Hylo's collateral ratio put it in a rebalance buy zone. If Hylo were underwater, the adapter would publish <strong>exactly zero</strong> with <code>DESTABILIZED</code> set — a loud, correct answer, not a quiet wrong one.</p>
+        <p>Every refusal leaves the previous quote in place to age past its <code>valid_until_slot</code>. <strong>Fail stale, never fail wrong.</strong></p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="who">svi-hylo-adapter → svi-core</div>
+        <h3>Publish over a frozen byte format</h3>
+        <p>The adapter calls svi-core with a 96-byte message: an 8-byte instruction id and 88 bytes of value, bounds, slot, timestamp, a hash binding the quote to the exact input accounts, and flags. It signs with a program-derived address only this program can sign for. The two programs share no Rust code — they're built on incompatible framework versions — which is why the format is bytes, checked by tests on both sides.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="who">svi-core</div>
+        <h3>Check the writer, then write</h3>
+        <p>svi-core does no arithmetic. It checks that the signer is the adapter address recorded in the feed descriptor when the feed was created, that the feed is active, then writes the 320-byte quote: sequence becomes 1, <code>valid_until</code> becomes the observed slot plus 750 (about five minutes).</p>
+        <p><em>Result:</em> signature <span class="mono">4h8kfqwA…8ui3f</span>, and an independent off-chain recomputation over the same accounts returned <span class="mono">$0.060285498</span> — identical.</p>
+      </div>
+    </li>
+  </ol>
+
+  <div class="prose">
+    <h2>What a reader does with it</h2>
+    <p>The account is 320 bytes with fixed offsets, so a program reads it with no library and almost no compute. This is the entire integration for a lender:</p>
+  </div>
+
+  <figure>
+    <div class="fig-wrap">
+    <svg viewBox="0 0 960 150" role="img" aria-label="Byte layout of the quote account: after an 8-byte discriminator, value at offset 232, lower at 240, upper at 248, observed slot at 256, valid_until at 280, sequence at 288, flags at 296, each 8 bytes.">
+      <g font-family="JetBrains Mono, monospace" font-size="11">
+        <rect x="10" y="40" width="60" height="44" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="40" y="66" text-anchor="middle" fill="var(--ink-3)">disc</text>
+        <rect x="70" y="40" width="200" height="44" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="170" y="60" text-anchor="middle" fill="var(--ink-3)">feed id · mints · hashes</text>
+        <text x="170" y="76" text-anchor="middle" fill="var(--ink-3)">8 … 232</text>
+        <rect x="270" y="40" width="90" height="44" fill="var(--quote-soft)" stroke="var(--quote)" stroke-width="1.5"/>
+        <text x="315" y="60" text-anchor="middle" fill="currentColor" font-weight="600">value</text>
+        <text x="315" y="76" text-anchor="middle" fill="var(--ink-3)">232</text>
+        <rect x="360" y="40" width="90" height="44" fill="var(--quote-soft)" stroke="var(--quote)" stroke-width="1.5"/>
+        <text x="405" y="60" text-anchor="middle" fill="currentColor" font-weight="600">lower</text>
+        <text x="405" y="76" text-anchor="middle" fill="var(--ink-3)">240</text>
+        <rect x="450" y="40" width="90" height="44" fill="var(--quote-soft)" stroke="var(--quote)" stroke-width="1.5"/>
+        <text x="495" y="60" text-anchor="middle" fill="currentColor" font-weight="600">upper</text>
+        <text x="495" y="76" text-anchor="middle" fill="var(--ink-3)">248</text>
+        <rect x="540" y="40" width="100" height="44" fill="var(--quote-soft)" stroke="var(--quote)"/>
+        <text x="590" y="60" text-anchor="middle" fill="currentColor">observed slot</text>
+        <text x="590" y="76" text-anchor="middle" fill="var(--ink-3)">256</text>
+        <rect x="640" y="40" width="100" height="44" fill="var(--quote-soft)" stroke="var(--quote)" stroke-width="1.5"/>
+        <text x="690" y="60" text-anchor="middle" fill="currentColor" font-weight="600">valid_until</text>
+        <text x="690" y="76" text-anchor="middle" fill="var(--ink-3)">280</text>
+        <rect x="740" y="40" width="90" height="44" fill="var(--quote-soft)" stroke="var(--quote)"/>
+        <text x="785" y="60" text-anchor="middle" fill="currentColor">sequence</text>
+        <text x="785" y="76" text-anchor="middle" fill="var(--ink-3)">288</text>
+        <rect x="830" y="40" width="80" height="44" fill="var(--quote-soft)" stroke="var(--quote)" stroke-width="1.5"/>
+        <text x="870" y="60" text-anchor="middle" fill="currentColor" font-weight="600">flags</text>
+        <text x="870" y="76" text-anchor="middle" fill="var(--ink-3)">296</text>
+        <rect x="910" y="40" width="40" height="44" fill="var(--state-soft)" stroke="var(--state)"/>
+        <text x="930" y="66" text-anchor="middle" fill="var(--ink-3)">…</text>
+        <text x="10" y="28" fill="var(--ink-3)">offset (bytes) · every field 8 bytes little-endian · dollars at 9 decimals</text>
+        <text x="10" y="112" fill="currentColor">a lender reads: <tspan font-weight="600">valid_until ≥ now</tspan> → <tspan font-weight="600">flags clear</tspan> → use <tspan font-weight="600">lower</tspan> for collateral</text>
+        <text x="10" y="132" fill="var(--ink-3)">the fields in bold are the four a risk engine needs; the rest describe provenance</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption>The four bold fields are the whole risk interface. Offsets are frozen and asserted by a test; a layout change would be a new feed, not a new version of this one.</figcaption>
+  </figure>
+
+  <div class="example">
+    <div class="eyebrow">Example · a lending market accepting xSOL</div>
+    <p>A user deposits <span class="mono">100,000 xSOL</span>. The market reads the quote account in the same transaction:</p>
+    <div class="calc">
+      <span class="k">valid_until 445954195 ≥ current slot?</span><span class="v">yes → usable</span>
+      <span class="k">flags</span><span class="v">BUY_ZONE only → no DESTABILIZED, no HALTED</span>
+      <span class="k">collateral value (lower bound)</span><span class="v">100,000 × $0.060285498 = $6,028.55</span>
+      <span class="k">at 60% LTV, may borrow</span><span class="v">$3,617.13</span>
+    </div>
+    <p>Five minutes later, if no keeper has refreshed, <code>valid_until</code> is in the past. The market should refuse <em>new</em> borrows against xSOL and leave existing positions alone until a fresh quote lands. It never has to guess whether a stale number is “probably fine”.</p>
+  </div>
+
+  <div class="prose">
+    <h2>Who can do what</h2>
+  </div>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Party</th><th>Can</th><th>Cannot</th></tr>
+    <tr><td><span class="pill state">keeper</span> anyone</td><td>trigger a refresh, pay the fee</td><td>change the value by one lamport; choose which price is used</td></tr>
+    <tr><td><span class="pill svi">adapter PDA</span></td><td>write a quote, after every check passes</td><td>be signed for by a human — only this program's code can</td></tr>
+    <tr><td><span class="pill svi">svi-core</span></td><td>accept a write from the recorded adapter, stamp sequence and validity</td><td>do arithmetic; accept any other writer</td></tr>
+    <tr><td><span class="pill state">Hylo</span></td><td>nothing new — its accounts are read as they are</td><td>be asked for permission, cooperation, or a key</td></tr>
+    <tr><td><span class="pill consumer">reader</span> anyone</td><td>read 320 bytes, at any commitment, from any RPC</td><td>need an API key, a server, or a signature</td></tr>
+    <tr><td><span class="pill consumer">observer</span></td><td>recompute from the raw accounts and shout if it differs</td><td>alter the on-chain value</td></tr>
+  </table>
+  </div>
+
+  <div class="prose">
+    <h2>When the adapter says no</h2>
+    <p>Each refusal has a code, a meaning, and a remedy — because they are different problems and a keeper needs to know which one it has.</p>
+  </div>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Code</th><th>Meaning</th><th>Remedy</th></tr>
+    <tr><td><span class="mono">6011 HyloCacheStale</span></td><td>Hylo's collateral cache is from a previous epoch</td><td>someone calls Hylo's <span class="mono">update_lst_prices</span>; Hylo's own users need this too</td></tr>
+    <tr><td><span class="mono">6012 OracleStale</span></td><td>SOL price older than 10 s, or its slot outside 25</td><td>wait for Pyth's next push (about a second)</td></tr>
+    <tr><td><span class="mono">6013 OracleConfidenceTooWide</span></td><td>Pyth is unsure of the SOL price</td><td>wait for the market to settle</td></tr>
+    <tr><td><span class="mono">6008 BandTooWide</span></td><td>mint/redeem spread over 500 bps</td><td>investigate; this is a Hylo fee-curve event</td></tr>
+    <tr><td><span class="mono">6003 OracleMismatch</span></td><td>the Pyth account passed isn't the one Hylo names</td><td>the keeper is wrong or malicious; ignore it</td></tr>
+  </table>
+  </div>
+
+  <div class="prose">
+    <h2>What exists today</h2>
+  </div>
+  <div class="two">
+    <div class="status">
+      <h3>Built and proven</h3>
+      <ul>
+        <li><code>svi-core</code> and <code>svi-hylo-adapter</code>, compiled for Solana, 17 tests</li>
+        <li><code>svi-abi</code>: the 96-byte format, zero dependencies, checked from both sides</li>
+        <li>First on-chain publication over real mainnet state, matched off-chain to the last digit</li>
+        <li><code>svi-keeper</code>: permissionless crank, and a watcher for the quote</li>
+        <li>Morning validation: SVI's off-chain reading matched hylo.so's displayed $0.0614 exactly</li>
+      </ul>
+    </div>
+    <div class="status">
+      <h3>Not yet</h3>
+      <ul>
+        <li>Mainnet deployment (tonight's run was a fork of mainnet state)</li>
+        <li><code>methodology_hash</code> is zero until the spec document is frozen</li>
+        <li>The independent observer and the mirror API</li>
+        <li>Epoch-boundary handling via Hylo's own cache update</li>
+        <li>A second adapter, which is where the “interface” in the name gets tested</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="prose">
+    <h2>Words used above</h2>
+  </div>
+  <div class="tbl-wrap">
+  <table>
+    <tr><td><strong>NAV</strong></td><td>Net asset value: what one token is worth by the protocol's own books, as opposed to what someone will pay for it on a DEX.</td></tr>
+    <tr><td><strong>PDA</strong></td><td>Program-derived address. An address with no private key; only the program it belongs to can sign for it. It's how a program proves “this came from my code”.</td></tr>
+    <tr><td><strong>CPI</strong></td><td>Cross-program invocation: one program calling another inside the same transaction.</td></tr>
+    <tr><td><strong>Slot</strong></td><td>Solana's clock tick, about 400 ms. 750 slots ≈ 5 minutes.</td></tr>
+    <tr><td><strong>bps</strong></td><td>Basis points; 100 bps = 1%. Tonight's band was 4.9 bps, or 0.049%.</td></tr>
+    <tr><td><strong>Keeper</strong></td><td>Any wallet that sends the refresh transaction. It has no authority; it only pays.</td></tr>
+    <tr><td><strong>Surfnet</strong></td><td>A local copy of mainnet's state, used for tonight's run. Same bytes, local validator.</td></tr>
+  </table>
+  </div>
+
+  <div class="foot">Figures from <span class="mono">docs/validation/2026-09-10-xsol-nav-mainnet.md</span>. Programs <span class="mono">H6495a…8oHH</span> (core) and <span class="mono">FfK5xy…3Mpr</span> (adapter). Design detail in <span class="mono">docs/product/03-architecture.md</span>.</div>
+</div>

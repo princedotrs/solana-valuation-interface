@@ -76,3 +76,4 @@ visibly-expired quote is always preferable to a plausible wrong one.
 Background research and the original conversations that led here are in
 [`../context/`](../context/) — the Telegram thread with Plish, and the ChatGPT
 and Gemini research transcripts.
+- `08-how-svi-values-xsol.html` — the finished pipeline in plain language with examples: why Pyth is upstream, the full architecture, one refresh step by step, how a lender reads the quote. Self-contained; open in a browser.
