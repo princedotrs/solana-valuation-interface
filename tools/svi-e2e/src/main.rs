@@ -151,6 +151,32 @@ async fn main() -> Result<()> {
     println!("  quote             {quote}");
     println!("  adapter authority {adapter_authority}\n");
 
+    // This tool deploys nothing, and a fresh Surfnet has neither program. An
+    // address Surfpool cannot find on mainnet becomes an empty owned-by-system
+    // account rather than a missing one, so the failure surfaces from inside
+    // simulation as "This program may not be used for executing instructions"
+    // -- which reads like a bad instruction, not a missing deploy. Check it
+    // here so the message names the actual problem.
+    for (name, id, dir, so) in [
+        ("svi-core", svi_core, "programs/svi-core", "svi_core"),
+        ("svi-hylo-adapter", adapter, "programs/svi-hylo-adapter", "svi_hylo_adapter"),
+    ] {
+        let executable = rpc.get_account(&id).await.map(|a| a.executable).unwrap_or(false);
+        if !executable {
+            bail!(
+                "{name} ({id}) is not deployed on this validator.\n\n\
+                 Deploy both programs first:\n\n  \
+                 solana program deploy \\\n    \
+                 --url {url} \\\n    \
+                 --program-id {dir}/target/deploy/{so}-keypair.json \\\n    \
+                 {dir}/target/deploy/{so}.so\n\n\
+                 Or run the runbook, which deploys and publishes in one pass:\n  \
+                 cd programs/svi-hylo-adapter && surfpool run publish --env localnet --unsupervised"
+            );
+        }
+    }
+    println!("  both programs deployed and executable\n");
+
     // The accounts the adapter reads, taken from the SDK rather than
     // hardcoded, so this cannot drift from what the program expects.
     let hylo_accounts = hylo_quotes::protocol_state::ProtocolAccounts::lst_pubkeys();
