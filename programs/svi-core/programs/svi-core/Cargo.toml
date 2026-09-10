@@ -23,6 +23,7 @@ custom-panic = []
 [dependencies]
 anchor-lang = "1.1.2"
 bytemuck = { version = "1.17", features = ["derive", "min_const_generics"] }
+svi-abi = { path = "../../../../crates/svi-abi" }
 
 
 [dev-dependencies]
