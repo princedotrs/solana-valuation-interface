@@ -73,9 +73,29 @@ Accounts not named are derived from the IDL — `system_program`, sysvars, and
 PDAs whose seeds the IDL records. `is_signer` always comes from the IDL; only
 `is_writable` can be overridden.
 
-Two things that cost time if you get them wrong: struct arguments are one
-object with named fields, and fixed byte arrays like `[u8; 32]` must be arrays
-of numbers. A hex string is rejected with `expected vec, found string`.
+Three traps, none guessable from the error text:
+
+**Struct arguments** are one object with named fields.
+
+**Fixed byte arrays** like `[u8; 32]` must be arrays of numbers in
+`instruction_args` (a hex string gives `expected vec, found string`) — but the
+*same value* used as a `find_pda` seed must be a hex string, because
+`get_seeds_from_value` calls `to_le_bytes()` per seed and a 32-number array
+blows past the 32-byte limit. That is why `feed_id` and `feed_id_seed` both
+exist, with an assertion that they agree.
+
+**Pubkeys in `instruction_args` must be base58 strings**, so wrap every one in
+`std::encode_base58`. txtx 0.3.8's borsh encoder matches on the value before
+the IDL type:
+
+```rust
+Value::Addon(addon_data) => return borsh_encode_bytes_to_idl_type(...),
+```
+
+and that function implements only `IdlType::U8`, hitting a `todo!()` for
+`IdlType::Pubkey`. The CLI panics with `not yet implemented` and no indication
+of which argument did it. Account blocks are unaffected — their `public_key`
+goes through `SvmValue::to_pubkey` and takes either form.
 
 ### Addresses
 
