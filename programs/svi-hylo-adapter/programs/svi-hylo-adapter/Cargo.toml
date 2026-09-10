@@ -53,11 +53,21 @@ solana-sha256-hasher = "=2.3.0"
 # program stays lean.
 hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f", features = ["offchain"] }
 
-# NOTE: the litesvm/solana-3.x dev-stack the Anchor template ships cannot
-# coexist with hylo-core's pinned solana 2.3.x. Integration tests for this
-# program run against a built .so under `cargo-build-sbf`, so they live
-# outside this crate rather than forcing a dependency downgrade on the
-# library itself. Unit tests here need no runtime.
+# tests/surfnet.rs talks to a live Surfnet over RPC. These are the solana 2.x
+# client crates at the versions anchor 0.32's shim already pins, so nothing
+# here moves the program's own dependency graph.
+hylo-quotes = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
+solana-rpc-client = "=2.3.13"
+solana-rpc-client-api = "=2.3.13"
+solana-commitment-config = "=2.2.1"
+solana-keypair = "=2.2.3"
+solana-signer = "=2.2.1"
+solana-transaction = "=2.2.3"
+solana-message = "=2.4.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+anyhow = "1"
+serde_json = "1"
+hex = "0.4"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
