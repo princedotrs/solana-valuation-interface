@@ -34,7 +34,6 @@
 
 use std::env;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
@@ -53,8 +52,15 @@ use solana_sha256_hasher::hashv;
 use solana_signer::Signer;
 use solana_transaction::Transaction;
 
-use hylo_core::exchange_context::ExchangeContext;
+use anchor_lang::solana_program::clock::Clock;
+use anchor_spl::token::Mint;
+use hylo_core::exchange_context::{ExchangeContext, LstExchangeContext};
+use hylo_core::fees::controller::LevercoinFees;
+use hylo_core::lst::total_sol_cache::TotalSolCache;
+use hylo_core::pyth::OracleConfig;
 use hylo_idl::exchange::accounts::Hylo;
+use hylo_idl::pda;
+use hylo_idl::tokens::{TokenMint, XSOL};
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
 const SVI_CORE_ID: &str = "H6495aW1Cxyoz2R7MuYVHF3Pu3FumFE9cZwKSJCR8oHH";
@@ -167,18 +173,47 @@ async fn time_travel_to_slot(rpc: &RpcClient, slot: u64) -> Result<()> {
     Ok(())
 }
 
-struct LocalClock {
-    slot: u64,
-    unix_timestamp: i64,
-}
-
-async fn clock(rpc: &RpcClient) -> Result<LocalClock> {
+/// The clock sysvar is five little-endian 8-byte fields in declaration order.
+async fn clock(rpc: &RpcClient) -> Result<Clock> {
     let d = rpc.get_account(&pk(CLOCK_SYSVAR)).await?.data;
     anyhow::ensure!(d.len() >= 40, "clock sysvar is {} bytes", d.len());
-    Ok(LocalClock {
-        slot: u64::from_le_bytes(d[0..8].try_into().unwrap()),
-        unix_timestamp: i64::from_le_bytes(d[32..40].try_into().unwrap()),
+    let u = |o: usize| u64::from_le_bytes(d[o..o + 8].try_into().unwrap());
+    let i = |o: usize| i64::from_le_bytes(d[o..o + 8].try_into().unwrap());
+    Ok(Clock {
+        slot: u(0),
+        epoch_start_timestamp: i(8),
+        epoch: u(16),
+        leader_schedule_epoch: u(24),
+        unix_timestamp: i(32),
     })
+}
+
+/// hylo-quotes' `build_lst_exchange_context`, reproduced with hylo-core's own
+/// `offchain` conversions rather than the adapter's `idl_bridge`, so this is
+/// an independent reading of the same bytes and not the program checking
+/// itself. (hylo-quotes itself cannot be a dev-dependency: see Cargo.toml.)
+async fn offchain_redeem_nav(rpc: &RpcClient, hylo_state: &Pubkey, xsol_mint: &Pubkey, sol_usd: &Pubkey) -> Result<u64> {
+    let accts = rpc.get_multiple_accounts(&[*hylo_state, *xsol_mint, *sol_usd]).await?;
+    let [Some(h), Some(m), Some(p)] = accts.as_slice() else { bail!("Hylo account missing") };
+    let hylo = Hylo::try_deserialize(&mut h.data.as_slice())?;
+    let mint = Mint::try_deserialize(&mut m.data.as_slice())?;
+    let pyth = PriceUpdateV2::try_deserialize(&mut p.data.as_slice())?;
+    let total_sol_cache: TotalSolCache = hylo.total_sol_cache.into();
+    let fees: LevercoinFees = hylo.levercoin_fees.into();
+    let ctx = LstExchangeContext::load(
+        clock(rpc).await?,
+        &total_sol_cache,
+        hylo.stablecoin_mint_threshold.try_into()?,
+        OracleConfig::new(hylo.oracle_interval_secs, hylo.oracle_conf_tolerance.try_into()?),
+        fees,
+        &pyth,
+        hylo.virtual_stablecoin.into(),
+        Some(&mint),
+        hylo.lst_sell_curve_config.into(),
+        hylo.lst_buy_curve_config.into(),
+    )
+    .context("off-chain LstExchangeContext::load")?;
+    Ok(ctx.levercoin_redeem_nav().context("off-chain redeem nav")?.bits)
 }
 
 // ---------------------------------------------------------------------------
@@ -269,8 +304,10 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
     println!("  deployed               svi-core {} bytes, adapter {} bytes", core_so.len(), adapter_so.len());
 
     // ---- 2. fresh snapshot of Hylo's accounts ------------------------------
-    let hylo_accounts = hylo_quotes::protocol_state::ProtocolAccounts::lst_pubkeys();
-    let (hylo_state, xsol_mint, sol_usd) = (hylo_accounts[0], hylo_accounts[1], hylo_accounts[2]);
+    // The same three the program requires: state PDA, xSOL mint, and the Pyth
+    // feed Hylo names in its own state (asserted below once state is loaded).
+    let (hylo_state, xsol_mint, sol_usd) =
+        (pda::HYLO, XSOL::MINT, hylo_core::pyth::SOL_USD.address);
     let main = RpcClient::new_with_commitment(mainnet, CommitmentConfig::confirmed());
     match main.get_multiple_accounts(&[hylo_state, xsol_mint, sol_usd]).await {
         Ok(accts) => {
@@ -294,6 +331,10 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
         let d = rpc.get_account(&sol_usd).await?.data;
         PriceUpdateV2::try_deserialize(&mut d.as_ref())?
     };
+    anyhow::ensure!(
+        hylo.sol_usd_oracle == sol_usd,
+        "Hylo state names oracle {} but SDK says {sol_usd}", hylo.sol_usd_oracle
+    );
     let mut c = clock(&rpc).await?;
     let interval = hylo.oracle_interval_secs;
     println!(
@@ -411,14 +452,10 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
     }
 
     // ---- 9. independent off-chain recomputation over the same frozen state --
-    let provider = hylo_quotes::protocol_state::RpcStateProvider::new(Arc::new(
-        RpcClient::new_with_commitment(url, CommitmentConfig::confirmed()),
-    ));
-    let ctx = provider.fetch_lst_context().await.context("off-chain hylo-core load")?;
-    let redeem = ctx.levercoin_redeem_nav().context("off-chain redeem nav")?;
-    println!("\n  off-chain hylo-core:   $ {redeem}");
+    let redeem = offchain_redeem_nav(&rpc, &hylo_state, &xsol_mint, &sol_usd).await?;
+    println!("\n  off-chain hylo-core:   $ {}", usd(redeem));
     assert_eq!(
-        q.quote_amount, redeem.bits,
+        q.quote_amount, redeem,
         "on-chain and off-chain hylo-core disagree over identical state"
     );
     println!("  MATCH: on-chain program and off-chain reader agree to the last digit.\n");
