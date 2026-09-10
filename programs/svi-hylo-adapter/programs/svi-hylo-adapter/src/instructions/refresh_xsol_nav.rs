@@ -8,6 +8,7 @@
 use anchor_lang::prelude::*;
 use solana_sha256_hasher::hashv;
 use anchor_spl::token::Mint;
+use hylo_core::error::CoreError;
 use hylo_core::exchange_context::{ExchangeContext, LstExchangeContext};
 use hylo_core::rebalance::mode::RebalanceMode;
 use hylo_idl::exchange::accounts::Hylo;
@@ -140,7 +141,7 @@ pub fn handle_refresh_xsol_nav(ctx: Context<RefreshXsolNav>) -> Result<()> {
         idl_bridge::rebalance_curve_config(hylo.lst_sell_curve_config),
         idl_bridge::rebalance_curve_config(hylo.lst_buy_curve_config),
     )
-    .map_err(|_| error!(AdapterError::ContextUnavailable))?;
+    .map_err(|e| context_error(&e, &clock, &hylo, &sol_usd))?;
 
     let valuation = value_xsol(&ctx_hylo, config.max_band_bps)?;
 
@@ -182,6 +183,45 @@ pub fn handle_refresh_xsol_nav(ctx: Context<RefreshXsolNav>) -> Result<()> {
         clock.slot
     );
     Ok(())
+}
+
+/// Translate `LstExchangeContext::load`'s failure into something a keeper can
+/// act on.
+///
+/// `load` runs five separate checks and returns one `CoreError` for all of
+/// them, and the adapter used to flatten that further into a single
+/// `ContextUnavailable`. The remedies differ: a stale cache needs somebody to
+/// call Hylo's `update_lst_prices` for the new epoch, a stale oracle needs a
+/// Pyth push and nothing else, and a wide confidence interval needs waiting.
+/// Collapsing them told an operator only that something was wrong.
+///
+/// The log line carries the numbers behind the verdict, because the codes
+/// alone do not say by how much a value missed.
+fn context_error(
+    e: &CoreError,
+    clock: &Clock,
+    hylo: &Hylo,
+    sol_usd: &pyth_solana_receiver_sdk::price_update::PriceUpdateV2,
+) -> Error {
+    msg!(
+        "cache epoch {} vs clock epoch {}; pyth publish_time {} posted_slot {} vs clock ts {} slot {}; hylo oracle interval {}s",
+        hylo.total_sol_cache.current_update_epoch,
+        clock.epoch,
+        sol_usd.price_message.publish_time,
+        sol_usd.posted_slot,
+        clock.unix_timestamp,
+        clock.slot,
+        hylo.oracle_interval_secs,
+    );
+    match e {
+        CoreError::TotalSolCacheOutdated => error!(AdapterError::HyloCacheStale),
+        CoreError::PythOracleOutdated
+        | CoreError::PythOracleSlotInvalid
+        | CoreError::PythOracleNegativeTime
+        | CoreError::PythOracleVerificationLevel => error!(AdapterError::OracleStale),
+        CoreError::PythOracleConfidence => error!(AdapterError::OracleConfidenceTooWide),
+        _ => error!(AdapterError::ContextUnavailable),
+    }
 }
 
 /// Status flags implied by the rebalance zone alone.
