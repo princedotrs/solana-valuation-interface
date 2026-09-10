@@ -17,6 +17,7 @@ use hylo_idl::{exchange, pda};
 use crate::constants::{flags, CONFIG_SEED, QUOTE_DECIMALS, XSOL_BASE_AMOUNT};
 use crate::cpi::{publish_quote, QuoteUpdate};
 use crate::error::AdapterError;
+use crate::idl_bridge;
 use crate::state::AdapterConfig;
 
 #[derive(Accounts)]
@@ -122,7 +123,7 @@ pub fn handle_refresh_xsol_nav(ctx: Context<RefreshXsolNav>) -> Result<()> {
 
     let ctx_hylo: LstExchangeContext<Clock> = LstExchangeContext::load(
         clock.clone(),
-        &hylo.total_sol_cache.into(),
+        &idl_bridge::total_sol_cache(hylo.total_sol_cache),
         hylo.stablecoin_mint_threshold
             .try_into()
             .map_err(|_| error!(AdapterError::ContextUnavailable))?,
@@ -132,12 +133,12 @@ pub fn handle_refresh_xsol_nav(ctx: Context<RefreshXsolNav>) -> Result<()> {
                 .try_into()
                 .map_err(|_| error!(AdapterError::ContextUnavailable))?,
         ),
-        hylo.levercoin_fees.into(),
+        idl_bridge::levercoin_fees(hylo.levercoin_fees),
         &sol_usd,
-        hylo.virtual_stablecoin.into(),
+        idl_bridge::virtual_stablecoin(hylo.virtual_stablecoin),
         Some(&accounts.xsol_mint),
-        hylo.lst_sell_curve_config.into(),
-        hylo.lst_buy_curve_config.into(),
+        idl_bridge::rebalance_curve_config(hylo.lst_sell_curve_config),
+        idl_bridge::rebalance_curve_config(hylo.lst_buy_curve_config),
     )
     .map_err(|_| error!(AdapterError::ContextUnavailable))?;
 
