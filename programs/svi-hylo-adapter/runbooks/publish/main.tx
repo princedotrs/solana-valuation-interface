@@ -55,8 +55,17 @@ action "deploy_adapter" "svm::deploy_program" {
 ################################################################
 # 2. Identifiers
 #
-# feed_id is sha256("hylo-xsol-nav-v1"), as a byte array because the IDL types
-# it [u8; 32] -- a hex string is rejected with "expected vec, found string".
+# feed_id is sha256("hylo-xsol-nav-v1"), and it is needed in TWO forms.
+#
+# The IDL types it [u8; 32], so instruction_args needs an array of numbers -- a
+# hex string there is rejected with "expected vec, found string".
+#
+# find_pda needs the opposite. It calls to_le_bytes() on each seed, and a
+# 32-element number array expands well past the 32-byte seed limit, failing
+# with "seed cannot be longer than 32 bytes". A hex string decodes to the raw
+# 32 bytes and works.
+#
+# Same value, two encodings. Keep them in sync.
 ################################################################
 
 variable "feed_id" {
@@ -93,12 +102,16 @@ variable "sdk_revision" {
 # fails a transaction instead of silently targeting the wrong account.
 ################################################################
 
+variable "feed_id_seed" {
+    value = "0x6ab826e3a5d80bc1cab3804748ea4f4d27bb6dd433e2d3bae1bc5b3f4d895c86"
+}
+
 variable "descriptor" {
-    value = svm::find_pda(action.deploy_svi_core.program_id, ["descriptor", variable.feed_id])
+    value = svm::find_pda(action.deploy_svi_core.program_id, ["descriptor", variable.feed_id_seed])
 }
 
 variable "quote" {
-    value = svm::find_pda(action.deploy_svi_core.program_id, ["quote", variable.feed_id])
+    value = svm::find_pda(action.deploy_svi_core.program_id, ["quote", variable.feed_id_seed])
 }
 
 variable "adapter_config" {
