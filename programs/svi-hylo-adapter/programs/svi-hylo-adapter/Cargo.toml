@@ -14,7 +14,13 @@ default = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build"]
+# anchor-spl MUST be forwarded here. `#[derive(Accounts)]` on a struct holding
+# an anchor-spl type (this program uses `Account<Mint>`) generates IDL code
+# calling `Mint::create_type`, `Mint::DISCRIMINATOR` and `Mint::insert_types`,
+# and those only exist when anchor-spl's own idl-build feature is on. Without
+# it `anchor build` fails at IDL generation with three E0599s pointing at the
+# derive, which look like the derive is broken rather than a missing feature.
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
