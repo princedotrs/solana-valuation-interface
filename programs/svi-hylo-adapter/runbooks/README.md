@@ -84,35 +84,43 @@ Three traps, none guessable from the error text:
 blows past the 32-byte limit. That is why `feed_id` and `feed_id_seed` both
 exist, with an assertion that they agree.
 
-**Pubkeys in `instruction_args` go in as-is.** Both forms this runbook
-produces are already base58 strings by the time they reach an argument:
+**Pubkeys in `instruction_args`: the rule comes from txtx's source, not from
+its declared types, which are wrong in both directions.**
 
-| Value | Declared type | Form at runtime |
-|---|---|---|
-| `action.*.program_id` | `Type::string()` | base58 string |
-| `variable.*.pda` | `Type::addon(SVM_PUBKEY)` | base58 string |
+| Value | Declared type | What it actually is | Form for `instruction_args` |
+|---|---|---|---|
+| `action.*.program_id` | `Type::string()` | `Value::Addon` of raw bytes (`deploy_program.rs:394`, `SvmValue::pubkey(bytes)`) | wrap in `std::encode_base58` |
+| `variable.*.pda` | `Type::addon(SVM_PUBKEY)` | `Value::string(pda.to_string())`, base58 (`functions.rs`, `FindPda::run`) | pass straight through |
+| system program | — | a literal | `"0x" + 64 hex zeros`, **not** `"111…1"` |
 
-The declared type of `find_pda(...).pda` is misleading — `svm::find_pda`'s own
-doc example wraps it in `std::encode_base58`, which does not work here.
-`std::encode_base58` hex-decodes its input, so handing it base58 fails on the
-first non-hex character: `failed to decode hex string 288zBibx...: Invalid
-character 'z' at position 3`. That pubkey is the adapter authority PDA
-(`find_pda(adapter, ["authority"])`, bump 254), which is how the failing
-argument was identified.
-
-What must never appear in `instruction_args` is a value that really is raw
-bytes — `svm::default_pubkey()` being the one this runbook used to call.
-txtx 0.3.8's borsh encoder matches on the value before the IDL type:
+Why raw bytes cannot be passed: txtx 0.3.8's borsh encoder matches on the
+value before the IDL type:
 
 ```rust
 Value::Addon(addon_data) => return borsh_encode_bytes_to_idl_type(...),
 ```
 
 and that function implements only `IdlType::U8`, hitting a `todo!()` for
-`IdlType::Pubkey`. The CLI panics with `not yet implemented` and no indication
-of which argument did it. `quote_mint` is therefore the literal
-`"11111111111111111111111111111111"`. Account blocks are unaffected — their
-`public_key` goes through `SvmValue::to_pubkey` and takes either form.
+`IdlType::Pubkey`. The CLI panics with `not yet implemented` at
+`idl/mod.rs:539` and never says which argument did it. A `String` instead
+reaches `IdlType::Pubkey => SvmValue::to_pubkey`, which works.
+
+Why not `encode_base58` everything: `std::encode_base58` takes an Addon's
+bytes but *hex-decodes* a string, so wrapping an already-base58 `.pda` fails
+on its first non-hex character — `Invalid character 'z' at position 3` on
+`288zBibx…`, the adapter authority PDA.
+
+Why not `"11111111111111111111111111111111"`: `SvmValue::to_pubkey` tries hex
+before base58, and 32 ones are valid hex. They decode to 16 bytes, and
+`hex[0..32]` then panics with an index out of range.
+
+Account blocks and `find_pda`'s program argument are unaffected: both go
+through `SvmValue::to_pubkey` directly, which accepts either form.
+
+This is checked offline by `tools/txtx-encode-check`, which runs txtx's own
+encoder against the real IDLs with these exact value shapes and asserts the
+bytes match a hand-built borsh encoding. Run it after touching either program's
+argument structs or this runbook's `instruction_args`.
 
 ### Addresses
 
