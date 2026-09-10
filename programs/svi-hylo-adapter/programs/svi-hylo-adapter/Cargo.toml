@@ -1,7 +1,7 @@
 [package]
 name = "svi-hylo-adapter"
 version = "0.1.0"
-description = "Created with Anchor"
+description = "SVI adapter: publishes Hylo xSOL NAV to a canonical SVI quote account"
 edition.workspace = true
 rust-version.workspace = true
 
@@ -19,17 +19,29 @@ anchor-debug = []
 custom-heap = []
 custom-panic = []
 
-
 [dependencies]
-anchor-lang = "1.1.2"
+# Pinned to the exact anchor version hylo-core requires. This program cannot
+# use the newer anchor that svi-core uses, which is precisely why it talks to
+# svi-core over the frozen byte ABI (see src/cpi.rs) instead of a Rust API.
+anchor-lang = "=0.32.1"
+
+# Hylo's own math and account types, pinned to an exact revision recorded
+# on-chain in AdapterConfig::sdk_revision. We reimplement none of it.
+hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f", features = ["offchain"] }
+hylo-idl = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
+hylo-fix = "0.8.0"
+pyth-solana-receiver-sdk = "1.2.0"
+anchor-spl = "=0.32.1"
+# Anchor 0.32's solana_program shim is assembled from granular crates and does
+# not re-export `hash`; take the hasher directly, at the version that shim uses.
+solana-sha256-hasher = "=2.3.0"
 
 [dev-dependencies]
-litesvm = "0.10.0"
-solana-message = "3.0.1"
-solana-transaction = "3.0.2"
-solana-signer = "3.0.0"
-solana-keypair = "3.0.1"
-
+# NOTE: the litesvm/solana-3.x dev-stack the Anchor template ships cannot
+# coexist with hylo-core's pinned solana 2.3.x. Integration tests for this
+# program run against a built .so under `cargo-build-sbf`, so they live
+# outside this crate rather than forcing a dependency downgrade on the
+# library itself. Unit tests here need no runtime.
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
