@@ -18,10 +18,17 @@
 //!   by pushed transactions and a local fork has none, so the oracle ages out
 //!   of Hylo's window within about a minute of `surfpool start`. Re-cloning is
 //!   what a fresh fork does, nothing more: no byte is edited.
-//! * Moves the Surfnet clock forward to the snapshot's slot if it lags, since
-//!   hylo-core requires `posted_slot <= clock.slot`. The clock can only go
-//!   forward, so a Surfnet that has run AHEAD of mainnet cannot be fixed and
-//!   the test says so.
+//! * Pins the Surfnet clock to the snapshot's own slot and time for the one
+//!   instruction that reads it. Hylo's oracle window is 10 seconds and
+//!   hylo-core needs both `posted_slot <= slot <= posted_slot + 25` and
+//!   `unix_timestamp <= publish_time + 10`. A Surfnet's slot counter drifts
+//!   from mainnet's (fixed 400 ms ticks vs. mainnet's real cadence) while its
+//!   timestamp tracks wall time, so on any Surfnet older than a few minutes
+//!   the two cannot both hold, and `surfnet_timeTravel` only moves forward,
+//!   dragging the timestamp along. Pausing the clock and writing the Clock
+//!   sysvar directly (`surfnet_setAccount`; LiteSVM parses it and rebuilds
+//!   its sysvar cache) evaluates the refresh exactly as a fork taken at
+//!   `posted_slot` would. No Hylo or Pyth byte is altered.
 //! * Skips `initialize_feed` / `initialize` when their PDAs already exist.
 //!
 //! Skips with a loud message when no Surfnet is reachable, so plain
@@ -163,13 +170,31 @@ async fn deploy(rpc: &RpcClient, program_id: &Pubkey, so: &[u8], authority: &Pub
     Ok(())
 }
 
-async fn time_travel_to_slot(rpc: &RpcClient, slot: u64) -> Result<()> {
-    rpc.send::<serde_json::Value>(
-        RpcRequest::Custom { method: "surfnet_timeTravel" },
-        json!([{ "absoluteSlot": slot }]),
-    )
-    .await
-    .context("surfnet_timeTravel")?;
+async fn cheatcode(rpc: &RpcClient, method: &'static str, params: serde_json::Value) -> Result<()> {
+    rpc.send::<serde_json::Value>(RpcRequest::Custom { method }, params)
+        .await
+        .with_context(|| method.to_string())?;
+    Ok(())
+}
+
+/// Write the Clock sysvar. Only meaningful while the clock is paused; the
+/// next produced block rewrites it from surfpool's internal state.
+async fn pin_clock(rpc: &RpcClient, c: &Clock) -> Result<()> {
+    let key = pk(CLOCK_SYSVAR);
+    let existing = rpc.get_account(&key).await?;
+    let mut d = Vec::with_capacity(40);
+    d.extend_from_slice(&c.slot.to_le_bytes());
+    d.extend_from_slice(&c.epoch_start_timestamp.to_le_bytes());
+    d.extend_from_slice(&c.epoch.to_le_bytes());
+    d.extend_from_slice(&c.leader_schedule_epoch.to_le_bytes());
+    d.extend_from_slice(&c.unix_timestamp.to_le_bytes());
+    set_account(rpc, &key, existing.lamports, &d, &existing.owner, false).await?;
+    let back = clock(rpc).await?;
+    anyhow::ensure!(
+        back.slot == c.slot && back.unix_timestamp == c.unix_timestamp,
+        "clock did not take: wrote slot {} ts {}, read slot {} ts {}",
+        c.slot, c.unix_timestamp, back.slot, back.unix_timestamp
+    );
     Ok(())
 }
 
@@ -192,7 +217,7 @@ async fn clock(rpc: &RpcClient) -> Result<Clock> {
 /// `offchain` conversions rather than the adapter's `idl_bridge`, so this is
 /// an independent reading of the same bytes and not the program checking
 /// itself. (hylo-quotes itself cannot be a dev-dependency: see Cargo.toml.)
-async fn offchain_redeem_nav(rpc: &RpcClient, hylo_state: &Pubkey, xsol_mint: &Pubkey, sol_usd: &Pubkey) -> Result<u64> {
+async fn offchain_redeem_nav(rpc: &RpcClient, clock: Clock, hylo_state: &Pubkey, xsol_mint: &Pubkey, sol_usd: &Pubkey) -> Result<u64> {
     let accts = rpc.get_multiple_accounts(&[*hylo_state, *xsol_mint, *sol_usd]).await?;
     let [Some(h), Some(m), Some(p)] = accts.as_slice() else { bail!("Hylo account missing") };
     let hylo = Hylo::try_deserialize(&mut h.data.as_slice())?;
@@ -201,7 +226,7 @@ async fn offchain_redeem_nav(rpc: &RpcClient, hylo_state: &Pubkey, xsol_mint: &P
     let total_sol_cache: TotalSolCache = hylo.total_sol_cache.into();
     let fees: LevercoinFees = hylo.levercoin_fees.into();
     let ctx = LstExchangeContext::load(
-        clock(rpc).await?,
+        clock,
         &total_sol_cache,
         hylo.stablecoin_mint_threshold.try_into()?,
         OracleConfig::new(hylo.oracle_interval_secs, hylo.oracle_conf_tolerance.try_into()?),
@@ -322,7 +347,7 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
         ),
     }
 
-    // ---- 3. align the clock with the snapshot ------------------------------
+    // ---- 3. the clock the refresh will see --------------------------------
     let hylo = {
         let d = rpc.get_account(&hylo_state).await?.data;
         Hylo::try_deserialize(&mut d.as_ref())?
@@ -335,27 +360,23 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
         hylo.sol_usd_oracle == sol_usd,
         "Hylo state names oracle {} but SDK says {sol_usd}", hylo.sol_usd_oracle
     );
-    let mut c = clock(&rpc).await?;
-    let interval = hylo.oracle_interval_secs;
+    let live = clock(&rpc).await?;
+    let pinned = Clock {
+        slot: pyth.posted_slot + 1,
+        epoch: (pyth.posted_slot + 1) / SLOTS_PER_EPOCH,
+        unix_timestamp: pyth.price_message.publish_time + 1,
+        epoch_start_timestamp: 0,
+        leader_schedule_epoch: 0,
+    };
     println!(
-        "  clock                  slot {} ts {} | pyth posted_slot {} publish_time {} | hylo interval {}s | cache epoch {} vs clock epoch {}",
-        c.slot, c.unix_timestamp, pyth.posted_slot, pyth.price_message.publish_time, interval,
-        hylo.total_sol_cache.current_update_epoch, c.slot / SLOTS_PER_EPOCH
+        "  clock (live)           slot {} ts {} | pyth posted_slot {} publish_time {} | hylo interval {}s",
+        live.slot, live.unix_timestamp, pyth.posted_slot, pyth.price_message.publish_time,
+        hylo.oracle_interval_secs
     );
-    if c.slot < pyth.posted_slot {
-        time_travel_to_slot(&rpc, pyth.posted_slot + 2).await?;
-        c = clock(&rpc).await?;
-        println!("  clock                  moved forward to slot {}", c.slot);
-    }
-    // hylo-core: posted_slot <= slot <= posted_slot + interval * slots/sec
-    let slot_interval = interval.saturating_mul(5).saturating_div(2);
-    if c.slot > pyth.posted_slot + slot_interval {
-        bail!(
-            "this Surfnet's slot ({}) is {} ahead of the snapshot's ({}) and the clock only moves \
-             forward. Restart it: surfpool start",
-            c.slot, c.slot - pyth.posted_slot, pyth.posted_slot
-        );
-    }
+    println!(
+        "  clock (pinned)         slot {} ts {} epoch {} | hylo cache epoch {}",
+        pinned.slot, pinned.unix_timestamp, pinned.epoch, hylo.total_sol_cache.current_update_epoch
+    );
 
     // ---- 4. PDAs ------------------------------------------------------------
     let fid = feed_id();
@@ -414,9 +435,9 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
         println!("  adapter initialize     skipped (config exists)");
     }
 
-    // ---- 7. the actual thing -----------------------------------------------
+    // ---- 7. the actual thing, under the pinned clock ------------------------
     let before = rpc.get_account(&quote).await.ok().and_then(|a| Quote::decode(&a.data).ok());
-    send(&rpc, &payer, Instruction {
+    let refresh = Instruction {
         program_id: adapter,
         accounts: vec![
             AccountMeta::new(payer.pubkey(), true),
@@ -430,7 +451,42 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
             AccountMeta::new_readonly(svi_core, false),
         ],
         data: IX_REFRESH.to_vec(),
-    }, "refresh_xsol_nav").await?;
+    };
+    // Resume first in case an earlier run died while paused.
+    cheatcode(&rpc, "surfnet_resumeClock", json!([])).await?;
+    cheatcode(&rpc, "surfnet_pauseClock", json!([])).await?;
+    // The pause is relayed to the clock thread asynchronously; let any tick
+    // already in flight land before pinning, or it would overwrite the pin.
+    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+    let outcome: Result<()> = async {
+        pin_clock(&rpc, &pinned).await?;
+        let bh = rpc.get_latest_blockhash().await?;
+        let tx = Transaction::new(&[&payer], Message::new(&[refresh], Some(&payer.pubkey())), bh);
+        // Preflight runs against the pinned clock too, so a refusal surfaces
+        // here with the program's logs. Execution happens on receipt; only the
+        // "confirmed" status waits for a block, which needs the clock back.
+        let sig = match rpc.send_transaction(&tx).await {
+            Ok(sig) => sig,
+            Err(e) => {
+                println!("  refresh_xsol_nav       FAILED\n      {e}");
+                bail!("refresh_xsol_nav failed");
+            }
+        };
+        let want = before.as_ref().map(|b| b.sequence + 1).unwrap_or(1);
+        for _ in 0..50 {
+            if let Ok(a) = rpc.get_account(&quote).await {
+                if Quote::decode(&a.data).map(|q| q.sequence >= want).unwrap_or(false) {
+                    println!("  refresh_xsol_nav       ok   {sig}");
+                    return Ok(());
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        bail!("refresh_xsol_nav {sig} was accepted but the quote never advanced to sequence {want}")
+    }
+    .await;
+    cheatcode(&rpc, "surfnet_resumeClock", json!([])).await?;
+    outcome?;
 
     // ---- 8. read back and assert -------------------------------------------
     let q = Quote::decode(&rpc.get_account(&quote).await?.data)?;
@@ -452,7 +508,7 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
     }
 
     // ---- 9. independent off-chain recomputation over the same frozen state --
-    let redeem = offchain_redeem_nav(&rpc, &hylo_state, &xsol_mint, &sol_usd).await?;
+    let redeem = offchain_redeem_nav(&rpc, pinned, &hylo_state, &xsol_mint, &sol_usd).await?;
     println!("\n  off-chain hylo-core:   $ {}", usd(redeem));
     assert_eq!(
         q.quote_amount, redeem,
