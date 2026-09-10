@@ -1,0 +1,9 @@
+signer "payer" "svm::secret_key" {
+    description = "Pays for deployment and for cranking the feed"
+    keypair_json = "~/.config/solana/id.json"
+}
+
+signer "authority" "svm::secret_key" {
+    description = "Owns the feed descriptor and the adapter config"
+    keypair_json = "~/.config/solana/id.json"
+}
