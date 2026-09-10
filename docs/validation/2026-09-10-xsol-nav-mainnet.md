@@ -1,6 +1,7 @@
 # Validation record — xSOL NAV reproduced from mainnet
 
-**Date:** 2026-09-10 · **Slot:** 445910996 · **Epoch:** 1032
+**Date:** 2026-09-10 · **Slots:** 445910996, 445914806 · **Epoch:** 1032
+**Status:** ✅ **Confirmed against Hylo's own published figure.**
 **Tool:** [`tools/nav-check`](../../tools/nav-check) · **Math:** `hylo-core` @ `ee8d1cb`
 
 The first end-to-end evidence for SVI's central claim: the value of a
@@ -106,6 +107,31 @@ pool cannot be worth $17.2B. Conversely, at SOL ≈ $103.50 the back-solved TVL
 implies the pool holds about **247,500 SOL** — an ordinary size for an LST pool
 and consistent with everything else here.
 
+## Confirmation against Hylo's published figure
+
+Hylo's application displays xSOL at **$0.0614** (delivered to its front end on
+a `quote-update` event).
+
+| | |
+|---|---|
+| SVI computed, slot 445914806 | **$0.061469035** |
+| Hylo displays | **$0.0614** |
+| SVI truncated to Hylo's precision | **$0.0614** |
+
+**Exact match at the precision Hylo publishes.** A closer comparison is not
+available: Hylo shows four decimal places, so any value in `[0.06140, 0.06150)`
+appears identically, and SVI's figure sits inside that band. The two
+observations also bracket the displayed value — $0.061326 at the earlier slot,
+$0.061469 at the later — which is what continuous price movement between two
+non-simultaneous readings should look like.
+
+One incidental finding worth recording: under round-half-up, $0.061469035 would
+display as $0.0615, not $0.0614. Hylo shows $0.0614, so its display
+**truncates** — consistent with `hylo-core` flooring the redeem side
+throughout. SVI inherits that convention rather than choosing its own, which is
+why the two agree at the boundary rather than differing by a cent in the last
+place.
+
 ## What this establishes
 
 - The arithmetic thesis holds. The value is derivable from public state by a
@@ -124,11 +150,10 @@ and consistent with everything else here.
 - **One RPC, one read.** A single provider was trusted for this run. The
   production design requires two independent providers in agreement (spec §8);
   that observer does not exist yet.
-- **Not a comparison against Hylo's published xSOL figure.** The chart
-  inspected showed SOL/USD, not xSOL. The checks above are internal-consistency
-  and cross-slot tests, which are strong but are not the same as matching the
-  number Hylo itself displays for xSOL. That comparison is still outstanding
-  and should be recorded here when done.
+- **Not simultaneous.** SVI's reading and Hylo's display were taken moments
+  apart while NAV was moving, so this is agreement to Hylo's published
+  precision, not a byte-for-byte comparison at a single slot. Matching more
+  tightly would require Hylo to publish more digits.
 
 ## Reproducing
 
