@@ -5,8 +5,15 @@
 # actual account bytes -- nothing is mocked and no accounts need cloning by
 # hand. Surfpool fetches whatever the transaction touches.
 #
-#   surfpool start          # in one shell, forks mainnet
-#   surfpool run publish    # in another
+#   surfpool start                                    # forks mainnet
+#   surfpool run publish --env localnet --unsupervised # in another shell
+#
+# --env is REQUIRED and easy to miss. Signer files are named
+# `signers.<env>.tx`, and txtx skips any file whose name has three
+# dot-components unless that middle one matches the selected environment. With
+# no --env the signer definitions are silently not loaded, and every action
+# fails with "unable to resolve 'signer.payer'". --unsupervised skips the
+# interactive confirmation prompt.
 #
 # What it does: deploy both programs, create the feed, create the adapter
 # config, then crank the adapter once. The final action is the whole thesis --
