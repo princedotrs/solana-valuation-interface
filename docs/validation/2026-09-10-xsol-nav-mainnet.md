@@ -62,6 +62,50 @@ of magnitude.
 protocol is not in the depeg zone, and hyUSD reports exactly $1.000000000
 rather than a depeg NAV. Those two facts have to agree, and do.
 
+## Second observation — the strongest check available
+
+A second run 3,810 slots (~25 minutes) later, at **slot 445914806**, turns a
+single reading into a two-point test. Back-solving pool state independently at
+each slot:
+
+| | slot 445910996 | slot 445914806 | change |
+|---|---|---|---|
+| xSOL NAV (redeem) | $0.061326271 | $0.061469035 | +0.2328% |
+| xSOL market cap | $10,196,568.72 | $10,219,515.51 | +0.2251% |
+| **vUSD, SOL pool** | **$15,414,285.05** | **$15,414,284.97** | **−0.0000%** |
+| SOL-pool TVL | $25,610,853.78 | $25,633,800.48 | +0.0896% |
+| Implied leverage | 2.5117× | 2.5083× | — |
+
+**The vUSD row is the result.** Two independent reads, twenty-five minutes
+apart, each back-solved through three separately-fetched quantities — and the
+implied hyUSD supply agrees to **eight cents on $15.4 million**, one part in
+190 million. Nothing forces that. If the NAV computation, the supply decoding,
+or the collateral-ratio read were wrong in any way that mattered, the two
+solutions would diverge. They do not, because hyUSD supply genuinely barely
+moves over 25 minutes while SOL's price does.
+
+**xSOL amplified its collateral by 2.60×** over the interval, against a
+reported leverage of 2.51× — 3.4% apart. Exact agreement is not expected:
+leverage is a ratio that shifts as price moves, and xSOL supply changed by
+−0.0077% (mints and burns) during the window. Agreement to within a few percent
+over a 9-basis-point collateral move is what a correctly-behaving leveraged
+token looks like.
+
+## Ruling out a decimals error, quantitatively
+
+Hylo's front end charts SOL/USD around **$103.60** at this time. That is not
+xSOL, and cannot be:
+
+| xSOL priced at | implied market cap |
+|---|---|
+| $103.60 | **$17,225,317,999** |
+| $0.061326271 | $10,196,569 |
+
+Solana's entire DeFi TVL is roughly $12B. A single leveraged token on a $25M
+pool cannot be worth $17.2B. Conversely, at SOL ≈ $103.50 the back-solved TVL
+implies the pool holds about **247,500 SOL** — an ordinary size for an LST pool
+and consistent with everything else here.
+
 ## What this establishes
 
 - The arithmetic thesis holds. The value is derivable from public state by a
@@ -80,9 +124,11 @@ rather than a depeg NAV. Those two facts have to agree, and do.
 - **One RPC, one read.** A single provider was trusted for this run. The
   production design requires two independent providers in agreement (spec §8);
   that observer does not exist yet.
-- **Not a comparison against Hylo's front end.** The cross-checks above are
-  internal-consistency tests. Confirming the published figure on hylo.so is a
-  separate check and should be recorded here when done.
+- **Not a comparison against Hylo's published xSOL figure.** The chart
+  inspected showed SOL/USD, not xSOL. The checks above are internal-consistency
+  and cross-slot tests, which are strong but are not the same as matching the
+  number Hylo itself displays for xSOL. That comparison is still outstanding
+  and should be recorded here when done.
 
 ## Reproducing
 
