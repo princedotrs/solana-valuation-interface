@@ -141,12 +141,63 @@ place.
 - The band is narrow enough that publishing bounds is useful rather than
   vacuous.
 
+## On-chain publication (same day, later)
+
+The trust thesis, not just the arithmetic one. Run on a Surfnet forked from
+mainnet, with Hylo's three accounts re-cloned from mainnet immediately before
+the refresh and the validator clock pinned to that snapshot's own slot and
+time (see `programs/svi-hylo-adapter/tests/surfnet.rs` for why and how):
+
+```
+refresh_xsol_nav       ok   4h8kfqwA3kKwv8xy8gqrjSmiB4tUqSfpXFjYaYwc9L765AtNBQqobb125WXmzYQfjFkUnivw7t2ZJ5ohaNQ8ui3f
+
+PUBLISHED QUOTE  G28Ba5F9X71Pih2SNobXyU98tjQdga1Ztbzqg3PU4rWj
+  quote_amount   $ 0.060285498
+  lower / upper  $ 0.060285498 .. $ 0.060315053
+  base_amount      1000000 (1 whole xSOL)
+  observed_slot    445953445   valid_until 445954195
+  sequence         1   flags 0b10000
+
+off-chain hylo-core:   $ 0.060285498
+MATCH: on-chain program and off-chain reader agree to the last digit.
+```
+
+What ran, end to end, with nothing mocked:
+
+1. `svi-hylo-adapter` read Hylo's state PDA, the xSOL mint and the Pyth
+   SOL/USD feed — the same bytes mainnet held at slot 445953444.
+2. It computed NAV with `hylo-core` on-chain, refused nothing (the cache
+   epoch matched, the oracle was inside Hylo's 10-second window), and CPI'd
+   into `svi-core` over the frozen byte ABI with its authority PDA signing.
+3. `svi-core` wrote the 320-byte quote account.
+4. The test read that account back by byte offset, as a consumer would, and
+   recomputed the NAV off-chain with `hylo-core`'s own conversions over the
+   same accounts and the same clock.
+
+Reading the numbers:
+
+- **$0.060285498** vs. $0.061326271 in the morning run: SOL moved. What holds
+  is the structure — the redeem side is the headline, the band is
+  `0.060285498..0.060315053`, **4.9 bps** wide, inside the 500 bps ceiling
+  configured in `max_band_bps` and in line with the 6.92 bps observed earlier.
+- **`flags 0b10000`** is `BUY_ZONE` (bit 4): Hylo's collateral ratio put it in
+  a rebalance buy zone at that state, and the adapter said so rather than
+  hiding it. No `DESTABILIZED`, no `ZERO_SUPPLY_DEFAULT`, no `OPERATIONS_HALTED`.
+- **`valid_until = observed + 750`**: the 5-minute staleness horizon
+  consumers are told to enforce.
+- **`sequence 1`**: first publication on that feed.
+
+The adapter, the CPI, the writer-authority check, the canonical quote account
+and the consumer-side read are now all exercised. The 320-byte layout that
+`svi-core/tests/core.rs::layout_is_frozen` asserts is the one a real quote
+came back through.
+
 ## What this does NOT establish
 
-- **Nothing about the on-chain program.** This ran off-chain through one RPC.
-  It is the arithmetic thesis, not the trust thesis. Same-slot atomic reads,
-  adapter-PDA-only writes and the canonical quote account all live in
-  `programs/`, and none of that is exercised here.
+- **Not mainnet.** The on-chain run above is a Surfnet fork of mainnet state,
+  not mainnet itself. The program bytes and the account bytes are the real
+  ones; the validator is local. Deploying to mainnet is a separate step, and
+  `methodology_hash` must be set to the frozen spec's hash first.
 - **One RPC, one read.** A single provider was trusted for this run. The
   production design requires two independent providers in agreement (spec §8);
   that observer does not exist yet.
