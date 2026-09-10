@@ -2,23 +2,22 @@
 # Publish a real Hylo xSOL NAV quote, end to end.
 #
 # Against a Surfnet this runs on forked mainnet, so the adapter reads Hylo's
-# actual account bytes -- nothing is mocked and no accounts need cloning by
-# hand. Surfpool fetches whatever the transaction touches.
+# actual account bytes. Nothing is mocked and nothing needs cloning.
 #
-#   surfpool start                                    # forks mainnet
-#   surfpool run publish --env localnet --unsupervised # in another shell
+#   cd ../svi-core && anchor build     # both programs must be built first
+#   cd ../svi-hylo-adapter && anchor build
 #
-# --env is REQUIRED and easy to miss. Signer files are named
-# `signers.<env>.tx`, and txtx skips any file whose name has three
-# dot-components unless that middle one matches the selected environment. With
-# no --env the signer definitions are silently not loaded, and every action
-# fails with "unable to resolve 'signer.payer'". --unsupervised skips the
-# interactive confirmation prompt.
+#   surfpool start                                     # forks mainnet
+#   surfpool run publish --env localnet --unsupervised # another shell
 #
-# What it does: deploy both programs, create the feed, create the adapter
-# config, then crank the adapter once. The final action is the whole thesis --
-# a value computed on-chain from verified accounts, written where anyone can
-# read it.
+# --env is REQUIRED. Signer files are named `signers.<env>.tx`, and txtx skips
+# any file with three dot-components unless the middle one matches the selected
+# environment. Without it the signers silently do not load and every action
+# fails with "unable to resolve 'signer.payer'".
+#
+# Instruction blocks here are IDL-driven: give the IDL, the instruction name
+# and the args, then name each account as its own block. Anything omitted --
+# system_program, sysvars -- is derived from the IDL.
 ################################################################
 
 addon "svm" {
@@ -30,12 +29,8 @@ addon "svm" {
 # 1. Programs
 ################################################################
 
-# svi-core lives in its own Anchor workspace, so its artifacts are NOT under
-# this project's ./target. The defaults (./target/{deploy,idl}/...) resolve
-# relative to txtx.yml, so all three paths are given explicitly.
-#
-# Build it first, or this fails with "invalid anchor idl location":
-#   cd ../svi-core && anchor build
+# svi-core is a SEPARATE Anchor workspace, so its artifacts are not under this
+# project's ./target and all three paths are given explicitly.
 action "deploy_svi_core" "svm::deploy_program" {
     description = "Deploy svi-core, the notice board"
     program = svm::get_program_from_anchor_project(
@@ -58,28 +53,45 @@ action "deploy_adapter" "svm::deploy_program" {
 }
 
 ################################################################
-# 2. Addresses
+# 2. Identifiers
 #
-# feed_id is sha256("hylo-xsol-nav-v1"). The PDAs are derived here rather than
-# pasted, so a seed change in either program surfaces as a failed transaction
-# instead of a silently wrong account.
+# feed_id is sha256("hylo-xsol-nav-v1"), as a byte array because the IDL types
+# it [u8; 32] -- a hex string is rejected with "expected vec, found string".
 ################################################################
 
 variable "feed_id" {
-    value = "0x6ab826e3a5d80bc1cab3804748ea4f4d27bb6dd433e2d3bae1bc5b3f4d895c86"
+    value = [
+        106, 184, 38, 227, 165, 216, 11, 193, 202, 179, 128, 71,
+        72, 234, 79, 77, 39, 187, 109, 212, 51, 226, 211, 186,
+        225, 188, 91, 63, 77, 137, 92, 134
+    ]
 }
 
-# sha256 of the frozen methodology document. Zero until the spec is frozen;
-# a real deployment must set it, since consumers check it to detect a feed's
+# sha256 of the frozen methodology document. Zero until the spec is frozen; a
+# real deployment MUST set it, since consumers check it to detect a feed's
 # definition changing under them.
 variable "methodology_hash" {
-    value = "0x0000000000000000000000000000000000000000000000000000000000000000"
+    value = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0
+    ]
 }
 
-# First 20 bytes of the pinned hylo-core commit, ee8d1cba023ae26d5e81c77cca.
+# The pinned hylo-core commit, ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f.
 variable "sdk_revision" {
-    value = "0xee8d1cba023ae26d5e81c77ccab52a4f71c44a3f"
+    value = [
+        238, 141, 28, 186, 2, 58, 226, 109, 94, 129, 199, 124,
+        202, 181, 42, 79, 113, 196, 74, 63
+    ]
 }
+
+################################################################
+# 3. Addresses
+#
+# PDAs are derived here rather than pasted, so a seed change in either program
+# fails a transaction instead of silently targeting the wrong account.
+################################################################
 
 variable "descriptor" {
     value = svm::find_pda(action.deploy_svi_core.program_id, ["descriptor", variable.feed_id])
@@ -93,139 +105,155 @@ variable "adapter_config" {
     value = svm::find_pda(action.deploy_adapter.program_id, ["config"])
 }
 
-# The adapter's signing PDA. svi-core accepts writes from this and nothing
-# else, which is what pins a published value's provenance to this code rather
-# than to a key a person holds.
+# svi-core accepts writes from this PDA and nothing else, which is what pins a
+# published value's provenance to this code rather than to a key someone holds.
 variable "adapter_authority" {
     value = svm::find_pda(action.deploy_adapter.program_id, ["authority"])
 }
 
-# Hylo's accounts on mainnet. Surfpool serves these from the fork.
-#
-# Derived from the SDK, not typed by hand:
-#   cargo run --manifest-path ../../tools/nav-check/Cargo.toml -- --addresses
+# Hylo's mainnet accounts, served by Surfpool from the fork. Derived, not typed:
+#   cargo run --manifest-path ../../../../tools/nav-check/Cargo.toml -- --addresses
 variable "hylo_state" {
     value = "9cd2sAfbBvKs4SX9YKo4dcjwP3TgTVQ8dT5koshGcDND"
 }
 variable "xsol_mint" {
     value = "4sWNB8zGWHkh6UnmwiEtzNxL4XrN7uK9tosbESbJFfVs"
 }
-# Read from Hylo's own state (Hylo.sol_usd_oracle) rather than chosen by us --
-# see the adapter's OracleMismatch check.
+# Read from Hylo's own state (Hylo.sol_usd_oracle), not chosen by us -- see the
+# adapter's OracleMismatch check.
 variable "sol_usd_pyth" {
     value = "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE"
 }
 
 ################################################################
-# 3. Create the feed
+# 4. Create the feed
+#
+# value_type 1 is PROTOCOL_NAV; 840 is USD. xSOL has 6 decimals and the quote
+# carries 9, matching UFix64<N9> exactly so the conversion is the identity.
 ################################################################
 
 action "initialize_feed" "svm::process_instructions" {
     description = "Create the xSOL NAV feed descriptor and its quote account"
     instruction {
         program_id = action.deploy_svi_core.program_id
-        accounts = [
-            svm::account(signer.authority.public_key, true, true),
-            svm::account(variable.descriptor.pda, false, true),
-            svm::account(variable.quote.pda, false, true),
-            svm::account(svm::system_program_id(), false, false),
-        ]
-        # InitFeedParams is a struct, so it is passed as one object with
-        # named fields. value_type 1 is PROTOCOL_NAV; 840 is USD; xSOL has 6
-        # decimals and the quote carries 9, matching UFix64<N9> exactly so the
-        # conversion is the identity.
-        data = svm::get_instruction_data_from_idl(
-            action.deploy_svi_core.program_idl,
-            "initialize_feed",
-            [{
-                feed_id            = variable.feed_id,
-                adapter_program    = action.deploy_adapter.program_id,
-                adapter_authority  = variable.adapter_authority.pda,
-                adapter_config     = variable.adapter_config.pda,
-                base_mint          = variable.xsol_mint,
-                quote_mint         = svm::default_pubkey(),
-                methodology_hash   = variable.methodology_hash,
-                max_age_slots      = 750,
-                quote_currency_code = 840,
-                value_type         = 1,
-                base_decimals      = 6,
-                quote_decimals     = 9
-            }]
-        )
+        program_idl = action.deploy_svi_core.program_idl
+        instruction_name = "initialize_feed"
+        instruction_args = [{
+            feed_id             = variable.feed_id,
+            adapter_program     = action.deploy_adapter.program_id,
+            adapter_authority   = variable.adapter_authority.pda,
+            adapter_config      = variable.adapter_config.pda,
+            base_mint           = variable.xsol_mint,
+            quote_mint          = svm::default_pubkey(),
+            methodology_hash    = variable.methodology_hash,
+            max_age_slots       = 750,
+            quote_currency_code = 840,
+            value_type          = 1,
+            base_decimals       = 6,
+            quote_decimals      = 9
+        }]
+
+        authority {
+            public_key = signer.authority.public_key
+        }
+        descriptor {
+            public_key = variable.descriptor.pda
+        }
+        quote {
+            public_key = variable.quote.pda
+        }
     }
     signers = [signer.authority]
     depends_on = [action.deploy_adapter]
 }
 
 ################################################################
-# 4. Register the adapter as the only writer
+# 5. Register the adapter as the only writer
+#
+# max_band_bps 500: refuse to publish if the mint/redeem band exceeds 5%.
+# Mainnet was observed at 6.92 bps, so this is loose enough not to trip on
+# ordinary oracle confidence and tight enough to catch a bad quote.
 ################################################################
 
 action "initialize_adapter" "svm::process_instructions" {
     description = "Create the adapter config and its signing authority"
     instruction {
         program_id = action.deploy_adapter.program_id
-        accounts = [
-            svm::account(signer.authority.public_key, true, true),
-            svm::account(variable.adapter_config.pda, false, true),
-            svm::account(variable.adapter_authority.pda, false, false),
-            svm::account(svm::system_program_id(), false, false),
-        ]
-        # max_band_bps 500: refuse to publish if the mint/redeem band is
-        # wider than 5%. Mainnet was observed at 6.92 bps, so this is loose
-        # enough not to trip on ordinary oracle confidence and tight enough to
-        # catch a genuinely uncertain quote.
-        data = svm::get_instruction_data_from_idl(
-            action.deploy_adapter.program_idl,
-            "initialize",
-            [{
-                svi_core_program = action.deploy_svi_core.program_id,
-                descriptor       = variable.descriptor.pda,
-                quote            = variable.quote.pda,
-                methodology_hash = variable.methodology_hash,
-                sdk_revision     = variable.sdk_revision,
-                max_band_bps     = 500
-            }]
-        )
+        program_idl = action.deploy_adapter.program_idl
+        instruction_name = "initialize"
+        instruction_args = [{
+            svi_core_program = action.deploy_svi_core.program_id,
+            descriptor       = variable.descriptor.pda,
+            quote            = variable.quote.pda,
+            methodology_hash = variable.methodology_hash,
+            sdk_revision     = variable.sdk_revision,
+            max_band_bps     = 500
+        }]
+
+        authority {
+            public_key = signer.authority.public_key
+        }
+        config {
+            public_key = variable.adapter_config.pda
+        }
+        adapter_authority {
+            public_key = variable.adapter_authority.pda
+        }
     }
     signers = [signer.authority]
     depends_on = [action.initialize_feed]
 }
 
 ################################################################
-# 5. The point of all of it
+# 6. The point of all of it
 #
-# Permissionless: signed by the payer, not the authority. Anyone can send this
-# transaction, and nobody can influence the value it writes.
+# Signed by the payer, not the authority: cranking is permissionless, and the
+# keeper cannot influence the value that gets written.
 ################################################################
 
 action "refresh" "svm::process_instructions" {
     description = "Compute xSOL NAV from Hylo's accounts and publish it"
     instruction {
         program_id = action.deploy_adapter.program_id
-        accounts = [
-            svm::account(signer.payer.public_key, true, true),
-            svm::account(variable.adapter_config.pda, false, false),
-            svm::account(variable.hylo_state, false, false),
-            svm::account(variable.xsol_mint, false, false),
-            svm::account(variable.sol_usd_pyth, false, false),
-            svm::account(variable.descriptor.pda, false, false),
-            svm::account(variable.quote.pda, false, true),
-            svm::account(variable.adapter_authority.pda, false, false),
-            svm::account(action.deploy_svi_core.program_id, false, false),
-        ]
-        data = svm::get_instruction_data_from_idl(
-            action.deploy_adapter.program_idl,
-            "refresh_xsol_nav",
-            []
-        )
+        program_idl = action.deploy_adapter.program_idl
+        instruction_name = "refresh_xsol_nav"
+        instruction_args = []
+
+        payer {
+            public_key = signer.payer.public_key
+        }
+        config {
+            public_key = variable.adapter_config.pda
+        }
+        hylo_state {
+            public_key = variable.hylo_state
+        }
+        xsol_mint {
+            public_key = variable.xsol_mint
+        }
+        sol_usd_pyth {
+            public_key = variable.sol_usd_pyth
+        }
+        descriptor {
+            public_key = variable.descriptor.pda
+        }
+        quote {
+            public_key = variable.quote.pda
+            is_writable = true
+        }
+        adapter_authority {
+            public_key = variable.adapter_authority.pda
+        }
+        svi_core_program {
+            public_key = action.deploy_svi_core.program_id
+        }
     }
     signers = [signer.payer]
     depends_on = [action.initialize_adapter]
 }
 
 ################################################################
-# 6. Where to look
+# 7. Where to look
 ################################################################
 
 output "quote_account" {
