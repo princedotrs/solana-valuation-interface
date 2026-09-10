@@ -84,9 +84,19 @@ Three traps, none guessable from the error text:
 blows past the 32-byte limit. That is why `feed_id` and `feed_id_seed` both
 exist, with an assertion that they agree.
 
-**Pubkeys in `instruction_args` must be base58 strings**, so wrap every one in
-`std::encode_base58`. txtx 0.3.8's borsh encoder matches on the value before
-the IDL type:
+**Pubkeys in `instruction_args` must be base58 strings — but only some need
+converting**, and converting the wrong one also fails:
+
+| Value | Type | Form |
+|---|---|---|
+| `action.*.program_id` | `Type::string()` | pass straight through |
+| `variable.*.pda` | `Type::addon(SVM_PUBKEY)` | wrap in `std::encode_base58` |
+
+`std::encode_base58` converts *bytes* to base58. Give it something already
+base58 and it tries to hex-decode it: `Invalid character 'z' at position 3`.
+
+Raw bytes cannot be passed directly because txtx 0.3.8's borsh encoder matches
+on the value before the IDL type:
 
 ```rust
 Value::Addon(addon_data) => return borsh_encode_bytes_to_idl_type(...),
