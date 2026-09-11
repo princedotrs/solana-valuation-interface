@@ -116,7 +116,7 @@ for x, t, ls in src:
 # ---------------------------------------------------------------- adapter
 box(340, 316, 620, 140, "svi", "svi-hylo-adapter   —   the calculator",
     ["verify owner · PDA derivation · mint · program ID",
-     "call hylo-core (pinned SHA) via svi-math — exact integers, no floats",
+     "call hylo-core at a pinned commit — the protocol's own math, no floats",
      "propagate Pyth confidence into lower / upper bounds"],
     title_size=21, line_size=14)
 
