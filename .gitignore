@@ -1,0 +1,4 @@
+
+# local tooling installs, not project content
+.agents/
+.claude/skills/colosseum-copilot
