@@ -2,33 +2,32 @@
 
 | File | What it is |
 |---|---|
-| `svi-hylo-partnership-deck.pptx` | 21-slide partnership deck for the Hylo meeting. Editable in PowerPoint, Keynote or Google Slides. |
-| `svi-hylo-partnership-deck.pdf` | Same deck, flattened — use this when sending it to someone. |
+| `svi-pitch-deck.pptx` | **Current.** 19-slide public pitch — Twitter, Superteam, Colosseum, lenders. Leads with the on-chain receipt. |
+| `svi-pitch-deck.pdf` | Same deck, flattened — send this one. |
+| `build_deck.js` | The generator. The deck is built, not hand-edited. |
+| `svi-hylo-partnership-deck.pptx` / `.pdf` | **Superseded.** The earlier Hylo design-partner proposal. Kept because its five questions (§10 of the spec) still stand if Hylo ever engages. |
 
-Speaker notes are attached to the slides that need them (1, 2, 3, 4, 5, 6, 9, 12, 15, 18).
+Speaker notes are on slides 1–5, 7, 8, 11, 14, 17.
 
 ## Structure
 
 | Slides | Section | Purpose |
 |---|---|---|
-| 1–4 | **Problem** | Plish's own words, the five trusted hops, and four incidents where this exact failure class cost real money |
-| 5–10 | **Solution** | The idea, the architecture, the five pieces, the refresh flow, the failure matrix, the three consumption modes |
-| 11–14 | **Why Hylo says yes** | Zero program changes, we reimplement none of your math, what's already built, what Hylo gets |
-| 15–17 | **Why this exists at all** | Market, competitive landscape, go-to-market — including the parts that argue against it |
-| 18–21 | **The ask** | Five questions, the pilot plan, honest objections, next steps |
+| 1–2 | **Proof first** | The first on-chain publication, with the numbers |
+| 3–6 | **Problem** | Plish's public post, the five trusted hops, four incidents, the idea |
+| 7–12 | **How it works** | Architecture, where Pyth sits, five pieces, one refresh, fail-stale, three ways to consume |
+| 13 | **Status** | What is done, proven, drafted, and next |
+| 14–16 | **Why it exists** | Market, landscape, roadmap |
+| 17–19 | **The ask** | Three audiences, objections answered, what happens next |
 
 ## Regenerating
 
-The deck is generated, not hand-edited. The two full-bleed diagram slides (3 and 6)
-embed PNGs from [`../diagrams/`](../diagrams/) — regenerate those first if the
-architecture changes:
-
 ```bash
-python3 ../diagrams/gen_architecture.py
-python3 ../diagrams/gen_trustchain.py
+python3 docs/diagrams/gen_architecture.py     # slide 7
+python3 docs/diagrams/gen_trustchain.py       # slide 4
+NODE_PATH=/path/to/node_modules node docs/deck/build_deck.js   # needs pptxgenjs
 ```
 
-The generator script itself is not checked in (it depends on a local `pptxgenjs`
-install). Edit the `.pptx` directly for small changes; for structural changes,
-rebuild from the source docs in [`../product/`](../product/) — the deck is a
-compression of those, and they are the source of truth for every claim in it.
+Every claim is a compression of `docs/product/` and `docs/validation/`; those
+are the source of truth. The video plan and script are in
+`docs/product/09-pitch-video.md`.
