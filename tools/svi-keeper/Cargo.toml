@@ -29,3 +29,17 @@ anyhow = "1"
 serde_json = "1"
 hex = "0.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+# Fetching signed price updates from Hermes, for symbols whose feeds are not
+# sponsored on the target cluster. reqwest is already in the tree via
+# solana-rpc-client; pythnet-sdk parses the accumulator blob Hermes returns and
+# is the same version pyth-solana-receiver-sdk builds its params from, so the
+# MerklePriceUpdate we hand it is the exact type it expects.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+pythnet-sdk = "2.3.1"
+base64 = "0.22"
+borsh = "0.10"
+# `from_slice` is generic over endianness, and Pyth's wire format is
+# big-endian. The type parameter has to be named, so the crate defining it has
+# to be a direct dependency.
+byteorder = "1"
