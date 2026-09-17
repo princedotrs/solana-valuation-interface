@@ -14,8 +14,11 @@ pub mod svi_core {
     use super::*;
 
     pub fn initialize_feed(ctx: Context<InitializeFeed>, p: InitFeedParams) -> Result<()> {
+        // Keep in step with `ValueType`'s highest discriminant. A value the
+        // core does not know is refused at feed creation rather than being
+        // stored and later misread by a consumer that maps it to nothing.
         require!(
-            p.value_type >= 1 && p.value_type <= 6,
+            p.value_type >= 1 && p.value_type <= ValueType::ReferenceFairValue as u8,
             SviError::InvalidValueType
         );
 

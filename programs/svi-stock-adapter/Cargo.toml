@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "programs/*"
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+# Must not exceed the rustc bundled with Solana platform-tools (1.84.1),
+# or `anchor build` refuses the package before compiling it.
+rust-version = "1.84.0"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
