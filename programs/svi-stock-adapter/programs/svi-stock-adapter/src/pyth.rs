@@ -33,6 +33,9 @@ use crate::error::StockAdapterError;
 /// evidence of anything. Beyond that, something is wrong and we stop.
 const FUTURE_TOLERANCE_SECS: i64 = 30;
 
+/// `AdapterConfig::min_verification_level` value meaning "require Full".
+pub const FULL_VERIFICATION: u8 = 1;
+
 /// A price that has passed every check, converted to the published scale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VerifiedPrice {
@@ -63,8 +66,9 @@ impl VerifiedPrice {
 ///
 /// 1. the account is owned by the Pyth receiver program;
 /// 2. it deserializes as a `PriceUpdateV2`;
-/// 3. its verification level is `Full` — a partially verified update needs
-///    fewer colluding guardians to forge, and we are not in a hurry;
+/// 3. its verification level meets the symbol's configured minimum — `Full`
+///    unless the deployment posts its own prices, since a partially verified
+///    update needs fewer colluding guardians to forge;
 /// 4. its feed id equals the one in this symbol's config;
 /// 5. its publish time is positive and not from the future;
 /// 6. it is not older than the hard limit for this feed;
@@ -81,6 +85,7 @@ pub fn load_verified(
     now_unix: i64,
     max_age_secs: u64,
     max_conf_bps: u64,
+    min_verification_level: u8,
 ) -> Result<VerifiedPrice> {
     // 1. Owner. Without this, any account whose bytes happen to deserialize
     //    could be passed — including one an attacker wrote themselves.
@@ -95,11 +100,14 @@ pub fn load_verified(
     let update = PriceUpdateV2::try_deserialize(&mut data.as_ref())
         .map_err(|_| error!(StockAdapterError::PythMalformed))?;
 
-    // 3. Verification level. `gte` treats Full as greater than any Partial.
-    require!(
-        update.verification_level.gte(VerificationLevel::Full),
-        StockAdapterError::PythNotFullyVerified
-    );
+    // 3. Verification level. `gte` treats Full as greater than any Partial,
+    //    and Partial with more signatures as greater than Partial with fewer.
+    if min_verification_level >= FULL_VERIFICATION {
+        require!(
+            update.verification_level.gte(VerificationLevel::Full),
+            StockAdapterError::PythNotFullyVerified
+        );
+    }
 
     // 4. Identity. THE check: a real, fully verified price for the wrong asset
     //    is exactly what a malicious keeper would supply.

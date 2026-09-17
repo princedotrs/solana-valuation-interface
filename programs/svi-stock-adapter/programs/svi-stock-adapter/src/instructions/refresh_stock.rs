@@ -81,6 +81,7 @@ pub fn handle_refresh_stock(ctx: Context<RefreshStock>) -> Result<()> {
         clock.unix_timestamp,
         config.reference_max_age_secs,
         config.max_conf_bps,
+        config.min_verification_level,
     )?;
     let token = load_verified(
         &a.token_price.to_account_info(),
@@ -88,6 +89,7 @@ pub fn handle_refresh_stock(ctx: Context<RefreshStock>) -> Result<()> {
         clock.unix_timestamp,
         config.token_max_age_secs,
         config.max_conf_bps,
+        config.min_verification_level,
     )?;
 
     // ---- What the pair says about itself -----------------------------------
@@ -244,6 +246,7 @@ mod tests {
             max_deviation_bps: 200, // 2%
             max_conf_bps: 500,
             methodology_hash: [0u8; 32],
+            min_verification_level: crate::pyth::FULL_VERIFICATION,
             symbol: *b"AAPL\0\0\0\0",
             base_decimals: 8,
             authority_bump: 254,
