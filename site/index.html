@@ -562,13 +562,18 @@ footer a { color: var(--ink-2); }
 
 <b>let</b> valid_until = u64::from_le_bytes(q[280..288].try_into()?);
 <b>let</b> flags       = u64::from_le_bytes(q[296..304].try_into()?);
+<b>let</b> base_amount = u64::from_le_bytes(q[224..232].try_into()?);
 <b>let</b> lower       = u64::from_le_bytes(q[240..248].try_into()?);
 
 require!(Clock::get()?.slot &lt;= valid_until, MyError::StaleQuote);
 require!(flags &amp; HALT_MASK == 0,            MyError::FeedHalted);
 
-<i>// lower is USD per whole xSOL at 9 decimals</i>
-<b>let</b> collateral_usd = amount_xsol <b>as</b> u128 * lower <b>as</b> u128 / 1_000_000;</pre>
+<i>// The quote reads "base_amount base units are worth `lower` .. `upper`".</i>
+<i>// So value = your amount * lower / base_amount — no decimals hardcoded,</i>
+<i>// which is what makes the same four lines work for any feed.</i>
+<i>// Here: base_amount = 1_000_000 (one whole xSOL, 6dp), and the</i>
+<i>// result is USD at the quote's 9 decimals.</i>
+<b>let</b> collateral_usd = amount_xsol <b>as</b> u128 * lower <b>as</b> u128 / base_amount <b>as</b> u128;</pre>
     </div>
 
     <div class="tabpanel" role="tabpanel" id="p-b" aria-labelledby="tab-b" hidden>
@@ -603,22 +608,24 @@ svi_hylo_adapter::cpi::refresh_xsol_nav(cpi)?;
     </div>
 
     <div class="tabpanel" role="tabpanel" id="p-d" aria-labelledby="tab-d" hidden>
-      <p style="margin-top:0;font-size:.95rem;color:var(--ink-2);max-width:66ch">Every field is 8 bytes, little-endian, after an 8-byte discriminator. Dollars carry 9 decimals. The four highlighted fields are the whole risk interface; the rest describe provenance.</p>
+      <p style="margin-top:0;font-size:.95rem;color:var(--ink-2);max-width:66ch">Offsets are counted from the end of the 8-byte discriminator, which is how you index after <code>data[8..]</code>. Amounts are 8-byte little-endian <code>u64</code>; dollars carry 9 decimals. The four bold fields are the whole risk interface — and <code>base_amount</code> is what the other three are quoted against.</p>
       <div class="scroll-x">
-      <svg viewBox="0 0 940 120" role="img" aria-label="Byte layout: value at offset 232, lower at 240, upper at 248, observed slot at 256, valid_until at 280, sequence at 288, flags at 296." style="min-width:700px">
+      <svg viewBox="0 0 940 120" role="img" aria-label="Byte layout of the 320-byte quote payload, offsets measured after the 8-byte discriminator: provenance 0 to 224, base_amount at 224, value at 232, lower at 240, upper at 248, observed slot at 256, timestamps at 264 and 272, valid_until at 280, sequence at 288, flags at 296, currency code and scalars from 304 to 320." style="min-width:780px">
         <g font-family="JetBrains Mono, monospace" font-size="10.5">
-          <text x="2" y="14" fill="var(--ink-3)">offset in bytes</text>
-          <rect x="2" y="26" width="52" height="42" fill="var(--raised)" stroke="var(--line-2)"/><text x="28" y="51" text-anchor="middle" fill="var(--ink-3)">disc</text>
-          <rect x="54" y="26" width="184" height="42" fill="var(--raised)" stroke="var(--line-2)"/><text x="146" y="45" text-anchor="middle" fill="var(--ink-3)">feed id · mints · hashes</text><text x="146" y="61" text-anchor="middle" fill="var(--ink-3)">8 … 232</text>
-          <rect x="238" y="26" width="88" height="42" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.4"/><text x="282" y="45" text-anchor="middle" fill="currentColor" font-weight="700">value</text><text x="282" y="61" text-anchor="middle" fill="var(--ink-3)">232</text>
-          <rect x="326" y="26" width="88" height="42" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.4"/><text x="370" y="45" text-anchor="middle" fill="currentColor" font-weight="700">lower</text><text x="370" y="61" text-anchor="middle" fill="var(--ink-3)">240</text>
-          <rect x="414" y="26" width="88" height="42" fill="var(--amber-soft)" stroke="var(--amber)"/><text x="458" y="45" text-anchor="middle" fill="currentColor">upper</text><text x="458" y="61" text-anchor="middle" fill="var(--ink-3)">248</text>
-          <rect x="502" y="26" width="100" height="42" fill="var(--amber-soft)" stroke="var(--amber)"/><text x="552" y="45" text-anchor="middle" fill="currentColor">observed</text><text x="552" y="61" text-anchor="middle" fill="var(--ink-3)">256</text>
-          <rect x="602" y="26" width="102" height="42" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.4"/><text x="653" y="45" text-anchor="middle" fill="currentColor" font-weight="700">valid_until</text><text x="653" y="61" text-anchor="middle" fill="var(--ink-3)">280</text>
-          <rect x="704" y="26" width="88" height="42" fill="var(--amber-soft)" stroke="var(--amber)"/><text x="748" y="45" text-anchor="middle" fill="currentColor">sequence</text><text x="748" y="61" text-anchor="middle" fill="var(--ink-3)">288</text>
-          <rect x="792" y="26" width="78" height="42" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.4"/><text x="831" y="45" text-anchor="middle" fill="currentColor" font-weight="700">flags</text><text x="831" y="61" text-anchor="middle" fill="var(--ink-3)">296</text>
-          <rect x="870" y="26" width="68" height="42" fill="var(--raised)" stroke="var(--line-2)"/><text x="904" y="51" text-anchor="middle" fill="var(--ink-3)">…320</text>
-          <text x="2" y="95" fill="currentColor">read order:  valid_until ≥ now  →  flags clear  →  use lower for collateral</text>
+          <text x="2" y="14" fill="var(--ink-3)">offset in bytes, after the discriminator</text>
+          <rect x="2" y="26" width="46" height="42" fill="var(--raised)" stroke="var(--line-2)"/><text x="25" y="51" text-anchor="middle" fill="var(--ink-3)">disc</text>
+          <rect x="48" y="26" width="126" height="42" fill="var(--raised)" stroke="var(--line-2)"/><text x="111" y="45" text-anchor="middle" fill="var(--ink-3)">provenance</text><text x="111" y="61" text-anchor="middle" fill="var(--ink-3)">0 … 224</text>
+          <rect x="174" y="26" width="84" height="42" fill="var(--amber-soft)" stroke="var(--amber)"/><text x="216" y="45" text-anchor="middle" fill="currentColor">base_amount</text><text x="216" y="61" text-anchor="middle" fill="var(--ink-3)">224</text>
+          <rect x="258" y="26" width="78" height="42" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.4"/><text x="297" y="45" text-anchor="middle" fill="currentColor" font-weight="700">value</text><text x="297" y="61" text-anchor="middle" fill="var(--ink-3)">232</text>
+          <rect x="336" y="26" width="78" height="42" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.4"/><text x="375" y="45" text-anchor="middle" fill="currentColor" font-weight="700">lower</text><text x="375" y="61" text-anchor="middle" fill="var(--ink-3)">240</text>
+          <rect x="414" y="26" width="78" height="42" fill="var(--amber-soft)" stroke="var(--amber)"/><text x="453" y="45" text-anchor="middle" fill="currentColor">upper</text><text x="453" y="61" text-anchor="middle" fill="var(--ink-3)">248</text>
+          <rect x="492" y="26" width="86" height="42" fill="var(--amber-soft)" stroke="var(--amber)"/><text x="535" y="45" text-anchor="middle" fill="currentColor">observed</text><text x="535" y="61" text-anchor="middle" fill="var(--ink-3)">256</text>
+          <rect x="578" y="26" width="82" height="42" fill="var(--raised)" stroke="var(--line-2)"/><text x="619" y="45" text-anchor="middle" fill="var(--ink-3)">ts · published</text><text x="619" y="61" text-anchor="middle" fill="var(--ink-3)">264 · 272</text>
+          <rect x="660" y="26" width="92" height="42" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.4"/><text x="706" y="45" text-anchor="middle" fill="currentColor" font-weight="700">valid_until</text><text x="706" y="61" text-anchor="middle" fill="var(--ink-3)">280</text>
+          <rect x="752" y="26" width="78" height="42" fill="var(--amber-soft)" stroke="var(--amber)"/><text x="791" y="45" text-anchor="middle" fill="currentColor">sequence</text><text x="791" y="61" text-anchor="middle" fill="var(--ink-3)">288</text>
+          <rect x="830" y="26" width="58" height="42" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.4"/><text x="859" y="45" text-anchor="middle" fill="currentColor" font-weight="700">flags</text><text x="859" y="61" text-anchor="middle" fill="var(--ink-3)">296</text>
+          <rect x="888" y="26" width="50" height="42" fill="var(--raised)" stroke="var(--line-2)"/><text x="913" y="45" text-anchor="middle" fill="var(--ink-3)">…320</text><text x="913" y="61" text-anchor="middle" fill="var(--ink-3)">304</text>
+          <text x="2" y="95" fill="currentColor">read order:  valid_until ≥ now  →  flags clear  →  amount × lower ÷ base_amount</text>
           <text x="2" y="112" fill="var(--ink-3)">a layout change would be a new feed, not a new version of this one</text>
         </g>
       </svg>
