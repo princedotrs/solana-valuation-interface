@@ -1,15 +1,33 @@
-# svi.site
+# The public site
 
-The public site: what SVI is, the proof it works, and three things you can
-poke at. One file, no build step, no dependencies beyond Google Fonts.
+One HTML file, no build step, no dependencies beyond Google Fonts.
 
 ```bash
-python3 -m http.server -d site 8080    # then open localhost:8080
+cp deployments.json site/deployments.json   # so the live panel has something to read
+python3 -m http.server -d site 8080         # then open localhost:8080
+node --test site/test/*.mjs                 # the decoder's tests
 ```
 
-Deploying to Netlify: point it at this repo with publish directory `site/`
-and an empty build command (`netlify.toml` already says so). Drag-and-drop of
-the folder works too.
+Deploying to Netlify: point it at the **repository root**, not at `site/`. The
+root `netlify.toml` sets the publish directory and copies `deployments.json`
+into it, which the live dashboard needs. Drag-and-drop of `site/` works for a
+quick look but leaves the dashboard with nothing to read.
+
+## The live section
+
+The panel at the top reads devnet quote accounts over a public RPC, from the
+browser, with no backend. It decodes the 320-byte payload by the offsets
+`svi-core/tests/core.rs::layout_is_frozen` asserts.
+
+A wrong offset would not throw — it would read a neighbouring field and render
+a plausible number, which is the worst failure available to a page whose whole
+claim is that you can check it yourself. So `site/test/decode.test.mjs` parses
+the offset table out of the shipped page and compares it to the frozen layout,
+then runs the decoder over a synthetic account whose every field differs.
+
+When there is nothing to read, the panel says so. It never shows a
+last-known-good value, for the same reason the on-chain code never publishes
+one.
 
 ## The three interactive pieces
 
@@ -24,10 +42,9 @@ All three compute from the real state recorded in
 
 ## Rules this page has to keep
 
-- Every number traceable to `docs/validation/` or the code.
-- "Mainnet fork" said plainly wherever the run is mentioned — it is not mainnet.
+- Every number traceable to `docs/validation/`, to a live account, or to the code.
+- "Mainnet fork" said plainly wherever the Hylo run is mentioned — it is not mainnet.
+- "Devnet" said plainly wherever the stock feeds are mentioned.
 - Never "fresher than Pyth". Pyth publishes the input; SVI publishes the
-  output; the quote can never be fresher than the price it came from.
+  output; a quote can never be fresher than the price it came from.
 - The unfinished parts stay listed as unfinished.
-
-Update the figures here whenever a new validation record lands.
