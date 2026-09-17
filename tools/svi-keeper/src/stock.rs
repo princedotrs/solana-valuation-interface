@@ -74,6 +74,11 @@ pub struct StockFeed {
     pub market_quote: Pubkey,
     pub equity_price: Pubkey,
     pub token_price: Pubkey,
+    /// The Pyth feed ids this symbol's config will accept, as recorded at
+    /// deploy time. Only the `--post-updates` path needs them: it asks Hermes
+    /// for these exact feeds. The adapter checks them again on-chain.
+    pub equity_feed_id: [u8; 32],
+    pub token_feed_id: [u8; 32],
 }
 
 impl StockFeed {
@@ -81,13 +86,31 @@ impl StockFeed {
     /// wrong is the classic silent failure, so it is written once, here.
     #[must_use]
     pub fn refresh_ix(&self, payer: &Pubkey) -> Instruction {
+        self.refresh_ix_with(payer, self.equity_price, self.token_price)
+    }
+
+    /// The same instruction against price accounts other than the ones in
+    /// `deployments.json`.
+    ///
+    /// Used by the `--post-updates` path, where the keeper creates the price
+    /// accounts itself rather than reading Pyth's sponsored ones. The
+    /// substitution is safe to allow here because the adapter does not trust
+    /// these addresses: it re-reads the feed id inside each account and aborts
+    /// on a mismatch, so passing the wrong one fails the transaction rather
+    /// than publishing another asset's price.
+    pub fn refresh_ix_with(
+        &self,
+        payer: &Pubkey,
+        equity_price: Pubkey,
+        token_price: Pubkey,
+    ) -> Instruction {
         Instruction {
             program_id: self.adapter,
             accounts: vec![
                 AccountMeta::new(*payer, true),
                 AccountMeta::new_readonly(self.config, false),
-                AccountMeta::new_readonly(self.equity_price, false),
-                AccountMeta::new_readonly(self.token_price, false),
+                AccountMeta::new_readonly(equity_price, false),
+                AccountMeta::new_readonly(token_price, false),
                 AccountMeta::new_readonly(self.fair_descriptor, false),
                 AccountMeta::new(self.fair_quote, false),
                 AccountMeta::new_readonly(self.market_descriptor, false),
@@ -125,6 +148,24 @@ pub fn default_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("deployments.json")
+}
+
+/// Read one of the `feed_ids` entries: 32 bytes as 64 lowercase hex chars.
+///
+/// Strict about the length rather than tolerant: a short id that got padded
+/// somewhere would name a different feed, and the adapter would reject it
+/// on-chain with `PythFeedMismatch` — correct, but after a round trip and
+/// without saying which of the two ids was malformed.
+fn feed_id(v: &serde_json::Value, leg: &str) -> Result<[u8; 32]> {
+    let s = v
+        .get("feed_ids")
+        .and_then(|f| f.get(leg))
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| anyhow!("missing feed_ids.{leg}"))?;
+    let raw = hex::decode(s.strip_prefix("0x").unwrap_or(s))
+        .with_context(|| format!("feed_ids.{leg} is not hex: {s}"))?;
+    raw.try_into()
+        .map_err(|v: Vec<u8>| anyhow!("feed_ids.{leg} is {} bytes, expected 32", v.len()))
 }
 
 fn key(v: &serde_json::Value, field: &str) -> Result<Pubkey> {
@@ -179,7 +220,12 @@ pub fn parse(body: &str) -> Result<Deployments> {
             market_quote: key(v, "market_quote").with_context(|| format!("symbol {symbol}"))?,
             equity_price: key(v, "equity_price").with_context(|| format!("symbol {symbol}"))?,
             token_price: key(v, "token_price").with_context(|| format!("symbol {symbol}"))?,
+            equity_feed_id: feed_id(v, "equity").with_context(|| format!("symbol {symbol}"))?,
+            token_feed_id: feed_id(v, "token").with_context(|| format!("symbol {symbol}"))?,
         };
+        if feed.equity_feed_id == feed.token_feed_id {
+            bail!("symbol {symbol}: both Pyth feed ids are the same, so drift is always zero");
+        }
         if feed.fair_quote == feed.market_quote {
             bail!("symbol {symbol}: fair_quote and market_quote are the same account");
         }
@@ -239,6 +285,10 @@ mod tests {
       },
       "stocks": {
         "AAPL": {
+          "feed_ids": {
+            "equity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "token": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
           "config": "11111111111111111111111111111112",
           "adapter_authority": "11111111111111111111111111111113",
           "fair_descriptor": "11111111111111111111111111111114",
@@ -345,6 +395,51 @@ mod tests {
         );
         assert!(FeedSelector::parse("stock:").is_err());
         assert!(FeedSelector::parse("nonsense").is_err());
+    }
+
+    /// The override must replace exactly the two price slots and nothing
+    /// else. Getting this wrong would send the refresh at the right accounts
+    /// in the wrong order, which fails as a deserialisation error naming no
+    /// account.
+    #[test]
+    fn overriding_the_price_accounts_touches_only_those_two_slots() {
+        let f = parse(SAMPLE).unwrap().get("AAPL").unwrap().clone();
+        let payer = Pubkey::new_unique();
+        let (eq, tok) = (Pubkey::new_unique(), Pubkey::new_unique());
+
+        let base = f.refresh_ix(&payer);
+        let over = f.refresh_ix_with(&payer, eq, tok);
+
+        assert_eq!(base.data, over.data);
+        assert_eq!(base.accounts.len(), over.accounts.len());
+        assert_eq!(over.accounts[2].pubkey, eq);
+        assert_eq!(over.accounts[3].pubkey, tok);
+        for i in (0..base.accounts.len()).filter(|i| *i != 2 && *i != 3) {
+            assert_eq!(base.accounts[i].pubkey, over.accounts[i].pubkey, "slot {i}");
+            assert_eq!(base.accounts[i].is_writable, over.accounts[i].is_writable);
+        }
+    }
+
+    #[test]
+    fn feed_ids_are_parsed_as_32_bytes_and_a_wrong_length_is_named() {
+        let f = parse(SAMPLE).unwrap().get("AAPL").unwrap().clone();
+        assert_eq!(f.equity_feed_id, [0xaa; 32]);
+        assert_eq!(f.token_feed_id, [0xbb; 32]);
+
+        // 31 bytes: valid hex, wrong length. Must be refused, not zero-extended
+        // into a different feed.
+        let short = SAMPLE.replace("\"equity\": \"aa", "\"equity\": \"");
+        let err = format!("{:#}", parse(&short).unwrap_err());
+        assert!(err.contains("31 bytes") && err.contains("32"), "{err}");
+
+        // Not hex at all is caught earlier, and says so.
+        let junk = SAMPLE.replace("\"equity\": \"aa", "\"equity\": \"zz");
+        assert!(format!("{:#}", parse(&junk).unwrap_err()).contains("not hex"));
+
+        // Two identical legs can only ever report zero drift.
+        let same = SAMPLE.replace("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                                  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert!(parse(&same).is_err());
     }
 
     #[test]
