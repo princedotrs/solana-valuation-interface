@@ -4,6 +4,9 @@
 //!     svi-keeper watch                                     # terminal 2 (our quote)
 //!     svi-keeper watch --pyth                              # terminal 3 (the input)
 //!
+//!     svi-keeper crank --feed stock:AAPL                   # a tokenized stock
+//!     svi-keeper crank --feed stock:AAPL --post-updates    # ...bringing its own prices
+//!
 //! The keeper is permissionless by design: anyone can run it, it holds no
 //! privileged key, and svi-core only accepts the value because the adapter's
 //! own PDA signed the CPI. A refusal (stale oracle, cache epoch, band too
@@ -24,6 +27,7 @@
 use std::env;
 use std::time::Duration;
 
+pub mod hermes;
 pub mod stock;
 
 use anchor_lang::solana_program::{
@@ -359,6 +363,68 @@ async fn ensure_initialized(rpc: &RpcClient, payer: &Keypair, f: &Feed) -> Resul
     Ok(())
 }
 
+/// Post fresh price updates for one symbol, then refresh against them.
+///
+/// Two transactions, not one. A `post_update_atomic` carries its Wormhole VAA
+/// inline, and two of those plus a refresh does not fit in Solana's 1232-byte
+/// packet even after the signature list is trimmed. So the posts go first and
+/// the refresh follows in the next transaction.
+///
+/// That gap is bounded by the adapter, not by hope: it re-reads each price
+/// account's feed id, publish time and confidence, and refuses anything
+/// outside that symbol's configured windows. A post that lands and a refresh
+/// that does not is a cycle that published nothing, which is the intended
+/// failure.
+///
+/// `price_keys` are generated once per keeper run and reused every cycle.
+/// Fresh keypairs each cycle would leak the rent on two accounts every
+/// interval; reusing them means the rent is paid once, because the receiver
+/// overwrites an account whose write authority is already this payer.
+async fn post_and_refresh(
+    rpc: &RpcClient,
+    payer: &Keypair,
+    hermes_url: &str,
+    f: &stock::StockFeed,
+    feed_ids: (&[u8; 32], &[u8; 32]),
+    price_keys: (&Keypair, &Keypair),
+) -> Result<String> {
+    let (equity_feed_id, token_feed_id) = feed_ids;
+    let (equity_key, token_key) = price_keys;
+
+    let equity = hermes::fetch(hermes_url, equity_feed_id)
+        .await
+        .context("fetching the equity price from Hermes")?;
+    let token = hermes::fetch(hermes_url, token_feed_id)
+        .await
+        .context("fetching the token price from Hermes")?;
+
+    let mut posts = Vec::with_capacity(2);
+    for (update, key) in [(&equity, equity_key), (&token, token_key)] {
+        let trimmed = hermes::SignedUpdate {
+            vaa: hermes::trim_signatures(&update.vaa, hermes::KEPT_SIGNATURES)?,
+            ..update.clone()
+        };
+        posts.push(hermes::post_update_atomic_ix(
+            &trimmed,
+            &payer.pubkey(),
+            &key.pubkey(),
+        )?);
+    }
+
+    let bh = rpc.get_latest_blockhash().await?;
+    let post_tx = Transaction::new(
+        &[payer, equity_key, token_key],
+        Message::new(&posts, Some(&payer.pubkey())),
+        bh,
+    );
+    rpc.send_and_confirm_transaction(&post_tx)
+        .await
+        .context("posting price updates")?;
+
+    let ix = f.refresh_ix_with(&payer.pubkey(), equity_key.pubkey(), token_key.pubkey());
+    send(rpc, payer, ix).await
+}
+
 async fn send(rpc: &RpcClient, payer: &Keypair, ix: Instruction) -> Result<String> {
     let bh = rpc.get_latest_blockhash().await?;
     let tx = Transaction::new(&[payer], Message::new(&[ix], Some(&payer.pubkey())), bh);
@@ -551,7 +617,32 @@ async fn crank_stock(rpc_url: String, kp_path: String, symbol: String) -> Result
     println!("rpc                     {}", redact(&rpc_url));
     println!("keeper                  {}  (any key works; the adapter PDA is the writer)", payer.pubkey());
     println!("fair value quote        {}", f.fair_quote);
-    println!("market price quote      {}\n", f.market_quote);
+    println!("market price quote      {}", f.market_quote);
+
+    // Two ways to get a price on-chain, and the choice is visible rather than
+    // implied: without --post-updates the keeper reads Pyth's sponsored price
+    // accounts, which carry Full verification. With it, the keeper brings the
+    // price itself from Hermes, which is the only option for a feed nobody
+    // sponsors on this cluster -- and produces a Partial verification that
+    // this symbol's on-chain config must already allow.
+    let post_updates = has("--post-updates");
+    let hermes_url = arg("--hermes").unwrap_or_else(|| hermes::DEFAULT_HERMES.to_string());
+    let price_keys = (Keypair::new(), Keypair::new());
+    if post_updates {
+        println!("price source            Hermes, posted by this keeper ({hermes_url})");
+        println!("  equity price account  {}", price_keys.0.pubkey());
+        println!("  token price account   {}", price_keys.1.pubkey());
+        println!(
+            "  verification          Partial/{} signatures -- the symbol's \
+             min_verification_level must be 0",
+            hermes::KEPT_SIGNATURES
+        );
+    } else {
+        println!("price source            Pyth's sponsored accounts, read not written");
+        println!("  equity price account  {}", f.equity_price);
+        println!("  token price account   {}", f.token_price);
+    }
+    println!();
 
     for (name, key) in [("adapter", f.adapter), ("svi-core", f.svi_core)] {
         let ok = rpc.get_account(&key).await.map(|a| a.executable).unwrap_or(false);
@@ -561,7 +652,20 @@ async fn crank_stock(rpc_url: String, kp_path: String, symbol: String) -> Result
     loop {
         let started = std::time::Instant::now();
         let now = chrono_like_now();
-        match send(&rpc, &payer, f.refresh_ix(&payer.pubkey())).await {
+        let sent = if post_updates {
+            post_and_refresh(
+                &rpc,
+                &payer,
+                &hermes_url,
+                &f,
+                (&f.equity_feed_id, &f.token_feed_id),
+                (&price_keys.0, &price_keys.1),
+            )
+            .await
+        } else {
+            send(&rpc, &payer, f.refresh_ix(&payer.pubkey())).await
+        };
+        match sent {
             Ok(sig) => {
                 let fair = read_quote(&rpc, &f.fair_quote).await;
                 let market = read_quote(&rpc, &f.market_quote).await;
@@ -687,7 +791,12 @@ async fn main() -> Result<()> {
             "usage:\n  \
              svi-keeper crank [--feed hylo-xsol|stock:SYM] [--interval SECS] [--surfnet] [--rpc URL] [--keypair PATH]\n  \
              svi-keeper watch [--feed hylo-xsol|stock:SYM] [--pyth] [--once] [--rpc URL]\n\n\
-             stock feeds read their addresses from deployments.json (override with --deployments PATH)"
+             stock feeds read their addresses from deployments.json (override with --deployments PATH)\n\n  \
+--post-updates  bring the prices from Hermes and post them, instead of reading\n                  \
+             Pyth's sponsored accounts. Needed when a feed is not sponsored on\n                  \
+             this cluster. Produces a Partial verification, so the symbol's\n                  \
+             on-chain min_verification_level must be 0.\n  \
+             --hermes URL    override the Hermes endpoint (default hermes.pyth.network)"
         ),
     }
 }
