@@ -73,6 +73,24 @@ pub struct AdapterConfig {
     /// `sha256` of the frozen methodology document for this feed pair.
     pub methodology_hash: [u8; 32],
 
+    /// Minimum Pyth verification level this symbol will accept.
+    ///
+    /// `1` (the default, and what the runbooks set) means **Full**: two thirds
+    /// of the current guardian set have been verified. `0` means a partially
+    /// verified update is acceptable.
+    ///
+    /// This is a field rather than a constant because the two ways to get a
+    /// price on-chain give different answers. A sponsored feed that Pyth keeps
+    /// updated is fully verified, and needs no posting at all. Posting an
+    /// update yourself in a single transaction — `post_update_atomic` — checks
+    /// only a subset of signatures and produces a *partial* update, so a
+    /// deployment that has to post its own prices cannot also demand Full.
+    ///
+    /// Recorded on-chain so the trade-off is visible to a consumer rather than
+    /// buried in a keeper's configuration: a feed running at level 0 is one
+    /// where fewer colluding guardians could forge a price.
+    pub min_verification_level: u8,
+
     /// Ticker, right-padded with zero bytes, e.g. `b"AAPL\0\0\0\0"`.
     pub symbol: [u8; SYMBOL_LEN],
     /// Decimals of the tokenized stock's mint, used to size one whole token.
