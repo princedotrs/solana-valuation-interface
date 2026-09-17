@@ -34,6 +34,10 @@ pub struct InitSymbolParams {
 
     pub methodology_hash: [u8; 32],
     pub base_decimals: u8,
+    /// 1 = require Pyth's Full verification (the default the runbooks set).
+    /// 0 = accept a partially verified update, which a deployment that posts
+    /// its own prices atomically has to do. See `AdapterConfig`.
+    pub min_verification_level: u8,
 }
 
 /// Largest decimals we will size a whole token with. `pow10` tops out at 19,
@@ -110,6 +114,10 @@ impl InitSymbolParams {
             self.base_decimals <= MAX_BASE_DECIMALS,
             StockAdapterError::InvalidTolerance
         );
+        require!(
+            self.min_verification_level <= crate::pyth::FULL_VERIFICATION,
+            StockAdapterError::InvalidTolerance
+        );
         Ok(())
     }
 }
@@ -160,6 +168,7 @@ pub fn handle_initialize_symbol(
     c.max_deviation_bps = p.max_deviation_bps;
     c.max_conf_bps = p.max_conf_bps;
     c.methodology_hash = p.methodology_hash;
+    c.min_verification_level = p.min_verification_level;
     c.symbol = p.symbol;
     c.base_decimals = p.base_decimals;
     c.authority_bump = ctx.bumps.adapter_authority;
