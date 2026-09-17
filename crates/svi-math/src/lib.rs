@@ -129,3 +129,90 @@ impl Band {
         Some(bps <= max_bps)
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Oracle-price helpers
+//
+// Added for the tokenized-stock adapter, which reads two Pyth feeds and has to
+// turn each one into a quote with bounds, then compare them. Deliberately
+// expressed over plain integers — no Pyth types, no Solana types — so this
+// crate stays dependency-free and testable on the host.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Multiply by `10^shift`, or divide by `10^-shift` when `shift` is negative.
+///
+/// Pyth reports a price as a mantissa plus a base-10 `exponent` (usually
+/// negative), so moving it to a fixed number of decimals is a signed shift
+/// rather than the unsigned `from -> to` that [`rescale`] expresses.
+///
+/// `scale_by_pow10(19_234_567_800, 1, Rounding::Down) == Some(192_345_678_000)`
+#[must_use]
+pub fn scale_by_pow10(amount: u64, shift: i32, rounding: Rounding) -> Option<u64> {
+    if shift >= 0 {
+        let k = u32::try_from(shift).ok()?;
+        mul_div(amount, pow10(k)?, 1, rounding)
+    } else {
+        // `-shift` cannot overflow for any i32 except i32::MIN, which
+        // checked_neg rejects.
+        let k = u32::try_from(shift.checked_neg()?).ok()?;
+        mul_div(amount, 1, pow10(k)?, rounding)
+    }
+}
+
+/// Turn a Pyth price and its confidence interval into a [`Band`] at
+/// `out_decimals`.
+///
+/// Pyth publishes `price ± conf` with a shared base-10 `expo`. The confidence
+/// interval is the oracle's own statement of how sure it is; SVI publishes it
+/// as the quote's bounds rather than discarding it, so a consumer can see the
+/// uncertainty instead of inferring it.
+///
+/// Rounding follows the house rule — round *against* whoever benefits:
+/// the lower bound floors, the upper bound ceils, and the midpoint floors.
+/// The band therefore never understates the oracle's uncertainty.
+///
+/// Returns `None` when the price is negative or zero (an equity or token price
+/// that is not strictly positive is not a price we will publish), when the
+/// exponent is out of range, or when any scaled value does not fit a `u64`.
+///
+/// `price - conf` **saturates at zero** rather than failing: a confidence
+/// interval wider than the price itself is a real state of the world, and the
+/// caller's band-width tolerance is the right place to reject it. Saturating
+/// keeps `lower <= mid` true so the `Band` still constructs and the caller can
+/// see how bad it is.
+#[must_use]
+pub fn pyth_band(price: i64, conf: u64, expo: i32, out_decimals: u8) -> Option<Band> {
+    if price <= 0 {
+        return None;
+    }
+    let p = u64::try_from(price).ok()?;
+
+    // Shift from the oracle's own scale to ours.
+    let shift = i32::from(out_decimals).checked_add(expo)?;
+
+    let mid = scale_by_pow10(p, shift, Rounding::Down)?;
+    let lower = scale_by_pow10(p.saturating_sub(conf), shift, Rounding::Down)?;
+    let upper = scale_by_pow10(p.checked_add(conf)?, shift, Rounding::Up)?;
+
+    Band::new(lower, mid, upper)
+}
+
+/// How far `market` sits from `reference`, in basis points of `reference`.
+///
+/// Used to decide whether a tokenized stock has drifted from the equity it
+/// tracks. Absolute, so a discount and a premium of the same size report the
+/// same number — the flag says "these disagree", and the sign is visible from
+/// the two published values themselves.
+///
+/// Rounds **up**, so a deviation exactly on a threshold trips the flag rather
+/// than slipping under it. Returns `None` if `reference` is zero.
+///
+/// `deviation_bps(102, 100) == Some(200)`
+#[must_use]
+pub fn deviation_bps(market: u64, reference: u64) -> Option<u64> {
+    if reference == 0 {
+        return None;
+    }
+    let diff = market.abs_diff(reference);
+    mul_div_ceil(diff, 10_000, reference)
+}

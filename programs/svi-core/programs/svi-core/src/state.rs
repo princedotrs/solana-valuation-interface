@@ -13,6 +13,17 @@ pub enum ValueType {
     BackingNav = 4,   // hyUSD backing value
     MarketSpot = 5,   // DEX price. NEVER use for collateral.
     MarketTwap = 6,
+    /// The value of the asset a token *tracks*, not of the token itself.
+    ///
+    /// For a tokenized stock this is the price of the underlying equity, from
+    /// an equity oracle — what the token is supposed to be worth. Pair it with
+    /// a `MarketSpot` feed for the same symbol to see what the token actually
+    /// trades at, and the gap between them is the premium or discount.
+    ///
+    /// A consumer must not treat this as the redemption value of the token:
+    /// the underlying equity market can be closed while the token keeps
+    /// trading, which is exactly what the `MARKET_CLOSED` flag reports.
+    ReferenceFairValue = 7,
 }
 
 #[repr(u8)]
@@ -25,13 +36,53 @@ pub enum FeedStatus {
 }
 
 // ---- status_flags bitfield on the Quote ----
+//
+// # Bit allocation registry
+//
+// `status_flags` is a `u64` shared by every adapter, and the core never
+// interprets it — it stores what the adapter sends. That makes collisions
+// silent and dangerous: two adapters using bit 3 for different things would
+// make a consumer's check mean one thing on one feed and another elsewhere.
+//
+// So ranges are allocated here, once, and an adapter owns its range:
+//
+// | bits | owner | meaning |
+// |---|---|---|
+// | 0-15 | protocol-NAV adapters | collateral and solvency states (below) |
+// | 16-23 | `svi-stock-adapter` | reference-market and deviation states |
+// | 24-63 | unallocated | claim a range here before using it |
+//
+// An adapter defines its own constants in its own `constants.rs` — it cannot
+// import these, because adapters do not link the core (see `svi-abi`). The
+// registry is the thing that keeps the hand-copied values from colliding.
 pub mod flags {
+    // ---- bits 0-15: protocol-NAV adapters (svi-hylo-adapter uses 0-5) ----
     pub const ZERO_SUPPLY_DEFAULT: u64 = 1 << 0;
     pub const DESTABILIZED: u64 = 1 << 1;
     pub const OPERATIONS_HALTED: u64 = 1 << 2;
     pub const SELL_ZONE: u64 = 1 << 3;
     pub const BUY_ZONE: u64 = 1 << 4;
     pub const EPOCH_BOUNDARY_CPI: u64 = 1 << 5;
+
+    // ---- bits 16-23: svi-stock-adapter ----
+    // Mirrored in that program's `constants.rs`; the values are part of the
+    // published format, not an implementation detail of either program.
+
+    /// The underlying equity market is not open, so the reference price is a
+    /// last-close value rather than a live one. The token keeps trading.
+    pub const MARKET_CLOSED: u64 = 1 << 16;
+    /// The equity feed has not updated within the adapter's configured window.
+    pub const REFERENCE_STALE: u64 = 1 << 17;
+    /// The tokenized-stock feed has not updated within that window.
+    pub const TOKEN_FEED_STALE: u64 = 1 << 18;
+    /// Token price and reference price disagree by more than the configured
+    /// tolerance. Set on BOTH quotes of the pair, so a consumer reading either
+    /// one alone still sees it.
+    pub const DEVIATION_HIGH: u64 = 1 << 19;
+
+    /// Every bit any adapter may currently set. A bit outside this mask means
+    /// a newer adapter than this core knows about.
+    pub const KNOWN_MASK: u64 = 0b11_1111 | (0b1111 << 16);
 }
 
 /// One per feed. Created by the admin, read on every publish. The rules live here,
@@ -97,3 +148,73 @@ pub struct Quote {
 // Fails the build if the layout ever drifts. Consumers depend on these exact offsets.
 const _: () = assert!(core::mem::size_of::<Quote>() == 320);
 const _: () = assert!(core::mem::align_of::<Quote>() == 8);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The discriminants are the published format: a consumer stores "this feed
+    /// is value_type 7" and maps it back. Renumbering would silently change
+    /// what every existing descriptor means.
+    #[test]
+    fn value_type_discriminants_are_pinned() {
+        assert_eq!(ValueType::ProtocolNav as u8, 1);
+        assert_eq!(ValueType::Redemption as u8, 2);
+        assert_eq!(ValueType::ExchangeRate as u8, 3);
+        assert_eq!(ValueType::BackingNav as u8, 4);
+        assert_eq!(ValueType::MarketSpot as u8, 5);
+        assert_eq!(ValueType::MarketTwap as u8, 6);
+        assert_eq!(ValueType::ReferenceFairValue as u8, 7);
+    }
+
+    /// `initialize_feed` validates `1..=ReferenceFairValue`. If a variant is
+    /// added without touching that bound, the new type is rejected at feed
+    /// creation and the failure looks like a client bug. This pins the two
+    /// together.
+    #[test]
+    fn highest_value_type_is_the_one_initialize_feed_accepts() {
+        assert_eq!(ValueType::ReferenceFairValue as u8, 7, "bump the require! in lib.rs too");
+    }
+
+    /// Ranges are allocated in the registry above. An overlap would make a
+    /// consumer's flag check mean different things on different feeds.
+    #[test]
+    fn stock_flags_do_not_collide_with_protocol_nav_flags() {
+        let protocol_nav = flags::ZERO_SUPPLY_DEFAULT
+            | flags::DESTABILIZED
+            | flags::OPERATIONS_HALTED
+            | flags::SELL_ZONE
+            | flags::BUY_ZONE
+            | flags::EPOCH_BOUNDARY_CPI;
+        let stock = flags::MARKET_CLOSED
+            | flags::REFERENCE_STALE
+            | flags::TOKEN_FEED_STALE
+            | flags::DEVIATION_HIGH;
+
+        assert_eq!(protocol_nav & stock, 0, "flag ranges overlap");
+        assert_eq!(protocol_nav, 0b11_1111, "protocol-NAV adapters own bits 0-5");
+        assert_eq!(stock, 0b1111 << 16, "the stock adapter owns bits 16-19");
+        assert_eq!(flags::KNOWN_MASK, protocol_nav | stock);
+    }
+
+    /// Bits 16-23 are the stock adapter's whole allocation; 20-23 are its room
+    /// to grow without asking the core for another range.
+    #[test]
+    fn stock_flags_sit_inside_their_allocated_range() {
+        let allocated: u64 = 0xFF << 16;
+        for f in [
+            flags::MARKET_CLOSED,
+            flags::REFERENCE_STALE,
+            flags::TOKEN_FEED_STALE,
+            flags::DEVIATION_HIGH,
+        ] {
+            assert_eq!(f & allocated, f, "flag {f:#x} escapes bits 16-23");
+        }
+    }
+
+    #[test]
+    fn quote_layout_is_320_bytes() {
+        assert_eq!(core::mem::size_of::<Quote>(), 320);
+        assert_eq!(core::mem::align_of::<Quote>(), 8);
+    }
+}
