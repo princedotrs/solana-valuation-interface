@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Solana Valuation Interface</title>
-<meta name="description" content="The value of a protocol asset, computed on-chain from accounts anyone can verify and written to an account anyone can read. First feed: Hylo xSOL NAV.">
-<meta property="og:title" content="Solana Valuation Interface">
-<meta property="og:description" content="Pricing that anyone can recompute. First feed: Hylo xSOL NAV, published on-chain.">
+<title>SVI &mdash; on-chain fair value for tokenized stocks</title>
+<meta name="description" content="Tokenized stocks trade 24/7 but the real shares do not. SVI publishes both prices on-chain as verifiable quote accounts, flagged when the market is closed and when the token has drifted.">
+<meta property="og:title" content="SVI — on-chain fair value for tokenized stocks">
+<meta property="og:description" content="AAPLx trades all night. Apple doesn’t. SVI puts both prices on-chain, with a flag for when the exchange is shut.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
@@ -210,6 +210,27 @@ footer { border-top: 1px solid var(--line); padding-block: 44px 60px; background
 footer .claim { font-family: "Bricolage Grotesque", sans-serif; font-size: 1.35rem; font-weight: 700; }
 footer .meta { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--ink-3); line-height: 1.9; }
 footer a { color: var(--ink-2); }
+
+/* ─────────────────────────────────────────── live dashboard */
+.dash-note { font-size: .95rem; color: var(--ink-2); border: 1px solid var(--line); border-left: 3px solid var(--line-2); background: var(--surface); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
+.dash-note.ok { border-left-color: var(--green); }
+.dash-note.pending { border-left-color: var(--amber); }
+.dash-note.err { border-left-color: var(--red); }
+.dash-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(272px, 1fr)); }
+.dash-card { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--violet); border-radius: 8px; padding: 18px 20px; box-shadow: var(--shadow); }
+.dash-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.dash-card h3 { font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; }
+.dash-card .rows { font-size: 12.5px; }
+.dash-card .rows dd b.x { color: var(--red); font-size: 11px; }
+.dash-miss { font-size: .9rem; color: var(--ink-3); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.chip { font-family: "JetBrains Mono", monospace; font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--ink-3); cursor: help; }
+.chip.ok { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, transparent); background: var(--green-soft); }
+.chip.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); background: var(--amber-soft); }
+.dash-addr { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--ink-3); margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.dash-addr a { color: var(--ink-3); }
+.dash-foot { display: flex; align-items: center; gap: 14px; margin-top: 22px; font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-3); }
+.btn.small { padding: 5px 12px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -218,7 +239,8 @@ footer a { color: var(--ink-2); }
   <div class="wrap nav-in">
     <a class="brand" href="#top"><span class="dot"></span>SVI <small>solana valuation interface</small></a>
     <nav class="nav-links">
-      <a href="#proof">Proof</a>
+      <a href="#live">Live</a>
+      <a href="#proof">Adapter #2</a>
       <a href="#why">Why</a>
       <a href="#calc">Try it</a>
       <a href="#how">How</a>
@@ -235,47 +257,257 @@ footer a { color: var(--ink-2); }
 <section class="hero" id="top">
   <div class="wrap hero-grid">
     <div>
-      <p class="eyebrow">Proof of concept · feed hylo-xsol-nav-v1</p>
-      <h1>Pricing that anyone can <em>recompute</em>.</h1>
-      <p class="lede">The value of a protocol asset, computed on-chain from accounts anyone can verify and written to an account anyone can read — so nobody has to trust a server doing hidden math.</p>
+      <p class="eyebrow">Tokenized stocks · on-chain fair value</p>
+      <h1>AAPLx trades all night. <em>Apple doesn&rsquo;t.</em></h1>
+      <p class="lede">A tokenized stock trades on Solana 24/7, but the real share trades six and a half hours a day. Every night and every weekend, the token&rsquo;s price drifts away from anything that reflects the company &mdash; and nothing on-chain says so.</p>
+      <p class="lede">SVI puts the true value on-chain. For each stock, one transaction reads two Pyth feeds &mdash; the real equity and the token &mdash; and publishes two verifiable quote accounts anyone can read, flagged <code>MARKET_CLOSED</code> when the exchange is shut and <code>DEVIATION_HIGH</code> when the token has drifted. No API to trust. Anyone can re-run the math.</p>
       <div class="cta">
-        <a class="btn primary" href="#proof">See the receipt</a>
-        <a class="btn ghost" href="#calc">Try the calculator</a>
+        <a class="btn primary" href="#live">See it live</a>
+        <a class="btn ghost" href="#integrate">Read a quote</a>
         <a class="btn ghost" href="https://github.com/princedotrs/solana-valuation-interface">Read the code</a>
       </div>
       <div class="badges">
-        <span class="badge ok">Adapter + core: working</span>
-        <span class="badge ok">First publication: 10 Sep 2026</span>
-        <span class="badge warn">On a mainnet fork — not yet mainnet</span>
+        <span class="badge ok">Adapter + core + keeper: working</span>
+        <span class="badge ok">Publishes to Pyth-verified inputs only</span>
+        <span class="badge warn">Devnet &mdash; not mainnet</span>
         <span class="badge warn">Unaudited</span>
       </div>
     </div>
 
     <div class="ledger">
       <div class="ledger-head">
-        <span class="t">PUBLISHED QUOTE</span>
-        <span class="a">G28Ba5F9X71Pih2SNobXyU98tjQdga1Ztbzqg3PU4rWj</span>
+        <span class="t">WHAT GETS PUBLISHED</span>
+        <span class="a">two accounts, one transaction</span>
       </div>
-      <div class="big-val">$0.060285498</div>
-      <p style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3);margin:2px 0 16px">per xSOL · 1 whole token · 9 decimals · USD</p>
       <dl class="rows">
-        <dt>bounds</dt><dd>0.060285498 .. 0.060315053 <span style="color:var(--ink-3)">(4.9 bps)</span></dd>
-        <dt>observed</dt><dd>slot 445953445</dd>
-        <dt>valid_until</dt><dd>slot 445954195 <span style="color:var(--ink-3)">(+750 ≈ 5 min)</span></dd>
-        <dt>sequence</dt><dd>1</dd>
-        <dt>flags</dt><dd><b style="color:var(--blue)">BUY_ZONE</b></dd>
+        <dt>fair value</dt><dd>what the <b>real share</b> is worth<br><span style="color:var(--ink-3);font-size:11px">Pyth Equity.US.AAPL/USD &rarr; <code>stock-aapl-fair-value-v1</code></span></dd>
+        <dt>market</dt><dd>what the <b>token</b> trades at<br><span style="color:var(--ink-3);font-size:11px">Pyth Crypto.AAPLX/USD &rarr; <code>stock-aapl-market-v1</code></span></dd>
+        <dt>bounds</dt><dd>Pyth&rsquo;s confidence interval, carried through</dd>
+        <dt>flags</dt><dd><b style="color:var(--amber)">MARKET_CLOSED</b> &middot; <b style="color:var(--amber)">DEVIATION_HIGH</b><br><span style="color:var(--ink-3);font-size:11px">REFERENCE_STALE &middot; TOKEN_FEED_STALE</span></dd>
         <dt>writer</dt><dd>adapter PDA only</dd>
         <dt>reader</dt><dd><b style="color:var(--green)">anyone</b></dd>
       </dl>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-3);margin:16px 0 0;padding-top:12px;border-top:1px solid var(--line)">Both written in the same instruction, so the pair can never be half-updated.</p>
     </div>
   </div>
 </section>
 
+<!-- ══════════════════════════════════════════ LIVE DASHBOARD -->
+<section id="live">
+  <div class="wrap">
+    <p class="eyebrow">Live · devnet</p>
+    <h2 class="sec">Two numbers per stock, read straight off the chain</h2>
+    <p class="sub">Your browser is reading the quote accounts directly over a public Solana RPC. There is no backend here and no API key — the same <code>getMultipleAccounts</code> call works from your own terminal, and the addresses are below so you can make it.</p>
+
+    <div id="dash-state" class="dash-note">Connecting to devnet…</div>
+    <div id="dash-cards" class="dash-grid"></div>
+
+    <p class="dash-foot">
+      <span id="dash-meta"></span>
+      <button id="dash-refresh" type="button" class="btn ghost small">Refresh</button>
+    </p>
+  </div>
+</section>
+
+<script>
+/* ── The live dashboard ───────────────────────────────────────────────────
+   Reads quote accounts over public RPC and decodes the 320-byte layout.
+   Nothing is cached or fetched from a server we run: if the chain says
+   nothing, this section says nothing, rather than showing a last-known value.
+   That is the same rule the on-chain code follows. */
+(() => {
+  const RPC = 'https://api.devnet.solana.com';
+
+  // Payload offsets, after the 8-byte discriminator. Frozen and asserted by
+  // svi-core/tests/core.rs::layout_is_frozen.
+  const OFF = {
+    base_amount: 224, value: 232, lower: 240, upper: 248,
+    observed_slot: 256, observed_unix_ts: 264, valid_until_slot: 280,
+    sequence: 288, status_flags: 296,
+  };
+  const PAYLOAD_LEN = 320;
+
+  // Bits 16-23 are this adapter's, as allocated in svi-core::state::flags.
+  const FLAGS = [
+    [16, 'MARKET_CLOSED',    'The US market is shut. The fair value is the last real print, not a live one.'],
+    [17, 'REFERENCE_STALE',  'Older than any ordinary closure — treat the fair value with suspicion.'],
+    [18, 'TOKEN_FEED_STALE', 'The token feed has gone quiet, which it should never do.'],
+    [19, 'DEVIATION_HIGH',   'The token is trading more than 2% away from the real share.'],
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const state = $('dash-state'), cards = $('dash-cards'), meta = $('dash-meta');
+
+  const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const short = (a) => a.slice(0, 4) + '…' + a.slice(-4);
+
+  function decode(raw) {
+    const d = raw.subarray(8);
+    if (d.length < PAYLOAD_LEN) return null;   // not a quote; say so rather than guess
+    const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+    const u = (o) => v.getBigUint64(o, true);
+    return {
+      base_amount: u(OFF.base_amount), value: u(OFF.value),
+      lower: u(OFF.lower), upper: u(OFF.upper),
+      observed_slot: u(OFF.observed_slot),
+      observed_unix_ts: v.getBigInt64(OFF.observed_unix_ts, true),
+      valid_until_slot: u(OFF.valid_until_slot),
+      sequence: u(OFF.sequence), status_flags: u(OFF.status_flags),
+    };
+  }
+
+  /* 9 decimals, shown to the cent plus enough digits to see the drift. */
+  function usd(bits) {
+    const n = Number(bits) / 1e9;
+    return '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4});
+  }
+
+  /* The whole point of the page, in one number: how far the token has drifted
+     from the share. Computed here from the two published values, so you can
+     check it against the accounts rather than trust this arithmetic. */
+  function premium(market, fair) {
+    if (fair === 0n) return null;
+    return (Number(market) - Number(fair)) / Number(fair) * 100;
+  }
+
+  function flagChips(bits) {
+    const set = FLAGS.filter(([b]) => (bits >> BigInt(b)) & 1n);
+    if (!set.length) return '<span class="chip ok" title="Nothing to report">clear</span>';
+    return set.map(([, name, why]) =>
+      `<span class="chip warn" title="${why}">${name}</span>`).join('');
+  }
+
+  function card(sym, fair, market, slot) {
+    const p = (fair && market) ? premium(market.value, fair.value) : null;
+    const stale = (q) => q && slot !== null && slot > q.valid_until_slot;
+
+    const missing = (what) =>
+      `<div class="dash-card"><h3>${sym}</h3>
+       <p class="dash-miss">${what}</p></div>`;
+
+    if (!fair || !market) return missing('One of this symbol’s two quotes has not been published yet.');
+
+    const pClass = p === null ? '' : Math.abs(p) >= 2 ? 'warn' : 'ok';
+    const pText  = p === null ? '—' : (p >= 0 ? '+' : '') + p.toFixed(2) + '%';
+
+    return `<div class="dash-card">
+      <div class="dash-card-head">
+        <h3>${sym}</h3>
+        <span class="chip ${pClass}" title="token price relative to the real share">${pText}</span>
+      </div>
+      <dl class="rows">
+        <dt>fair value</dt><dd>${usd(fair.value)}${stale(fair) ? ' <b class="x">expired</b>' : ''}</dd>
+        <dt>market</dt><dd>${usd(market.value)}${stale(market) ? ' <b class="x">expired</b>' : ''}</dd>
+        <dt>bounds</dt><dd>${usd(fair.lower)} .. ${usd(fair.upper)}</dd>
+        <dt>observed</dt><dd>slot ${fair.observed_slot}</dd>
+        <dt>valid until</dt><dd>slot ${fair.valid_until_slot}</dd>
+        <dt>sequence</dt><dd>${fair.sequence}</dd>
+      </dl>
+      <div class="chips">${flagChips(fair.status_flags | market.status_flags)}</div>
+      <p class="dash-addr">
+        fair <a href="https://explorer.solana.com/address/${fair.addr}?cluster=devnet" rel="noopener">${short(fair.addr)}</a>
+        · market <a href="https://explorer.solana.com/address/${market.addr}?cluster=devnet" rel="noopener">${short(market.addr)}</a>
+      </p>
+    </div>`;
+  }
+
+  async function rpc(method, params) {
+    const r = await fetch(RPC, {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify({jsonrpc: '2.0', id: 1, method, params}),
+    });
+    if (!r.ok) throw new Error(`RPC ${method} returned HTTP ${r.status}`);
+    const j = await r.json();
+    if (j.error) throw new Error(`RPC ${method}: ${j.error.message}`);
+    return j.result;
+  }
+
+  async function load() {
+    state.textContent = 'Connecting to devnet…';
+    state.className = 'dash-note';
+    cards.innerHTML = '';
+    meta.textContent = '';
+
+    let dep;
+    try {
+      const r = await fetch('deployments.json', {cache: 'no-store'});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      dep = await r.json();
+    } catch (e) {
+      state.className = 'dash-note pending';
+      state.innerHTML = 'No <code>deployments.json</code> is published yet, so there is nothing '
+        + 'live to read. The adapter, the keeper and the deploy runbook are in the repo; '
+        + 'this panel fills in the moment a deployment lands.';
+      return;
+    }
+
+    const syms = Object.entries(dep.stocks || {});
+    if (!syms.length) {
+      state.className = 'dash-note pending';
+      state.textContent = 'The deployment file lists no symbols yet.';
+      return;
+    }
+
+    // One request for every quote account, so the whole panel is a single
+    // snapshot rather than a set of reads from different slots.
+    const addrs = [];
+    for (const [sym, s] of syms) { addrs.push(s.fair_quote, s.market_quote); }
+
+    let res, slot = null;
+    try {
+      [res, slot] = await Promise.all([
+        rpc('getMultipleAccounts', [addrs, {encoding: 'base64', commitment: 'confirmed'}]),
+        rpc('getSlot', [{commitment: 'confirmed'}]).then(BigInt).catch(() => null),
+      ]);
+    } catch (e) {
+      state.className = 'dash-note err';
+      state.textContent = `Could not reach devnet: ${e.message}. `
+        + 'That is this page failing, not the feed — the accounts are on-chain either way.';
+      return;
+    }
+
+    const got = res.value.map((a, i) => {
+      if (!a) return null;
+      const q = decode(b64(a.data[0]));
+      if (q) q.addr = addrs[i];
+      return q;
+    });
+
+    const live = got.filter(Boolean).length;
+    if (!live) {
+      state.className = 'dash-note pending';
+      state.innerHTML = 'The deployment is recorded but none of its quote accounts exist on '
+        + 'devnet yet — nothing has been cranked. This panel shows values only when there are '
+        + 'values, never a last-known one.';
+      return;
+    }
+
+    cards.innerHTML = syms
+      .map(([sym], i) => card(sym, got[i * 2], got[i * 2 + 1], slot))
+      .join('');
+
+    state.className = 'dash-note ok';
+    state.innerHTML = `Reading ${live} quote account${live === 1 ? '' : 's'} on `
+      + `<b>${dep.cluster || 'devnet'}</b>, live, from your browser.`;
+    meta.textContent = slot === null ? '' : `chain slot ${slot}`;
+  }
+
+  $('dash-refresh').addEventListener('click', load);
+  load();
+  // A quote's useful life is ~750 slots, about five minutes. Re-reading every
+  // 30 seconds is often enough to watch a flag appear without hammering a
+  // public RPC.
+  setInterval(load, 30_000);
+})();
+</script>
+
 <!-- ══════════════════════════════════════════ PROOF -->
 <section id="proof" class="alt">
   <div class="wrap">
-    <p class="eyebrow">Proof first</p>
-    <h2 class="sec">It works. Here is the receipt.</h2>
+    <p class="eyebrow">Adapter #2 · hylo-xsol-nav-v1</p>
+    <h2 class="sec">The interface already generalises. Here is the receipt.</h2>
+    <p class="sub">Stocks are one kind of thing that needs an honest on-chain value. Before them, SVI published the NAV of Hylo's xSOL — a number computed by subtraction from a protocol's own vault, nothing like a Pyth feed. Same core, same 320-byte quote account, same write path; only the adapter differs. That is the argument for calling this an <em>interface</em> rather than an oracle.</p>
     <p class="sub">10 September 2026. A local fork of Solana mainnet with Hylo's real accounts re-cloned seconds before. One transaction, about 13,000 compute units. Nothing mocked.</p>
 
     <div class="grid g4" style="margin-bottom:26px">
@@ -316,7 +548,7 @@ footer a { color: var(--ink-2); }
 <!-- ══════════════════════════════════════════ WHY -->
 <section id="why">
   <div class="wrap">
-    <p class="eyebrow">The problem</p>
+    <p class="eyebrow">The problem, in the Hylo case</p>
     <h2 class="sec">Nobody publishes this number</h2>
     <div class="prose">
       <p>xSOL is Hylo's leveraged SOL token. Its value is not a market opinion — it is a formula over Hylo's own books. No oracle carries the result; Hylo's website computes it in your browser.</p>

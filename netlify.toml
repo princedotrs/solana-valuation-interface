@@ -1,0 +1,22 @@
+# Netlify deploys the static site in site/. There is no build step: the page is
+# one HTML file plus whatever deployment data has been published beside it.
+#
+# `deployments.json` is copied from the repo root into the publish directory so
+# the live dashboard can read it. It is copied rather than symlinked because
+# Netlify's uploader follows neither symlinks nor parent-directory references.
+[build]
+  publish = "site"
+  command = "cp -f deployments.json site/deployments.json 2>/dev/null || true"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# The dashboard re-reads this on a timer, and a cached copy would show a
+# deployment that has since been replaced.
+[[headers]]
+  for = "/deployments.json"
+  [headers.values]
+    Cache-Control = "no-store"
