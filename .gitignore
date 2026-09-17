@@ -6,3 +6,6 @@
 # Python bytecode from scripts/
 __pycache__/
 *.pyc
+
+# Copied into site/ at deploy time by netlify.toml; the root file is the source.
+site/deployments.json
