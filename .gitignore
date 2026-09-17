@@ -2,3 +2,7 @@
 # local tooling installs, not project content
 .agents/
 .claude/skills/colosseum-copilot
+
+# Python bytecode from scripts/
+__pycache__/
+*.pyc

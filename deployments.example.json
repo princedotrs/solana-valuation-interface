@@ -1,16 +1,22 @@
 {
   "_comment": [
-    "Shape of deployments.json, which the deploy runbook writes and the keeper,",
-    "the dashboard and stock-check all read. Copy to deployments.json only as a",
-    "starting point — every address below is a placeholder.",
+    "EXAMPLE ONLY -- every address below is derived from placeholder feed ids",
+    "and placeholder program ids, and none of these accounts exist.",
     "",
-    "equity_price / token_price are the Pyth price accounts for this symbol.",
-    "The adapter re-checks the feed id inside each one on every refresh, so a",
-    "wrong address here fails loudly (PythFeedMismatch, 6003) rather than",
-    "publishing the wrong asset's price."
+    "This file is the output of scripts/plan-deployment.py, so it is always the",
+    "shape the keeper, the dashboard and stock-check actually parse. Generate",
+    "the real one; do not edit this into place:",
+    "",
+    "  python3 scripts/fetch-feed-ids.py AAPL TSLA NVDA",
+    "  python3 scripts/plan-deployment.py --svi-core <ID> --adapter <ID>",
+    "",
+    "equity_price / token_price are Pyth's sponsored price accounts. The adapter",
+    "re-checks the feed id inside each one on every refresh, so a wrong address",
+    "fails loudly (PythFeedMismatch, 6003) rather than publishing the wrong",
+    "asset's price."
   ],
   "cluster": "devnet",
-  "generated_at": "1970-01-01T00:00:00Z",
+  "generated_at": "1970-01-01T00:00:00+00:00",
   "programs": {
     "svi_core": "H6495aW1Cxyoz2R7MuYVHF3Pu3FumFE9cZwKSJCR8oHH",
     "svi_stock_adapter": "3RmdZomoBXkWwGwvdjWK8ELYB4XeqHxTmrzedcmucHxq"
@@ -18,17 +24,25 @@
   "stocks": {
     "AAPL": {
       "feed_ids": {
-        "equity": "0000000000000000000000000000000000000000000000000000000000000000",
-        "token": "1111111111111111111111111111111111111111111111111111111111111111"
+        "equity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "token": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
-      "config": "11111111111111111111111111111112",
-      "adapter_authority": "11111111111111111111111111111113",
-      "fair_descriptor": "11111111111111111111111111111114",
-      "fair_quote": "11111111111111111111111111111115",
-      "market_descriptor": "11111111111111111111111111111116",
-      "market_quote": "11111111111111111111111111111117",
-      "equity_price": "11111111111111111111111111111118",
-      "token_price": "11111111111111111111111111111119"
+      "pyth_symbols": {
+        "equity": "Equity.US.AAPL/USD",
+        "token": "Crypto.AAPLX/USD"
+      },
+      "svi_feed_ids": {
+        "fair": "a7b65e764d1e4389a736d983e867ea62af0a19d3329fad34c0bd0c0f23884c65",
+        "market": "179e6b41b00db070d441a9bedefcd8ee69f80e797266a8bf98e9b3e4e0a3a9ac"
+      },
+      "config": "3nj2fXwhjUASkrwCwwuuZVTgYDaaBbjN6UqZmXDs6BQ3",
+      "adapter_authority": "FaRoL31RzFtPuye1g8K1WqkDSvxgJCFJwfmwJCPWdGjD",
+      "fair_descriptor": "Bbh9SyuZtJdoquRdy5ZK8Qnh9HVVW4a9PEo1FcEj3wnB",
+      "fair_quote": "EvqzKGJsFSiDYYr2KccSMHYNntVhTVXLdnQVttNNvdho",
+      "market_descriptor": "9NcWPtw81WvxKD4n1QgDdueZkpJFTAquDjwozHS8qCcp",
+      "market_quote": "2zTCFaNqZ661AuH7tJF4VDzqAj4mkcoTNEKzrQPNMXx5",
+      "equity_price": "Cz12oQ2GagzAFZATDYZsQKUYTkML3dVsUSLHsucgmP9v",
+      "token_price": "G1nA3bmGXcz5p8uqwqP8phXXshEbif9AooLRasw2JigT"
     }
   }
 }
