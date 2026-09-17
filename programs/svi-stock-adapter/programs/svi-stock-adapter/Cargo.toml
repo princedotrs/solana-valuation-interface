@@ -1,0 +1,47 @@
+[package]
+name = "svi-stock-adapter"
+version = "0.1.0"
+description = "SVI adapter: publishes the fair value and the market price of a tokenized stock as two verifiable quote accounts"
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "svi_stock_adapter"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+# Pinned to match pyth-solana-receiver-sdk 1.2.0, which requires anchor-lang
+# ^0.32.1. This is the same pair the Hylo adapter already builds for SBF, so
+# the toolchain path is proven rather than assumed.
+#
+# pyth-solana-receiver-sdk 2.0.0 moves to anchor-lang ^1.0.2, which would match
+# svi-core and allow linking it directly instead of going over the byte ABI.
+# Deliberately not taken: the byte ABI is what lets an adapter be pinned to its
+# own protocol's dependencies, and a future adapter (Meteora DBC, PreStocks)
+# will need that freedom even though this one does not.
+anchor-lang = "=0.32.1"
+pyth-solana-receiver-sdk = "1.2.0"
+
+# The wire format for calling svi-core. Zero dependencies, so it imposes no
+# version constraint of its own.
+svi-abi = { path = "../../../../crates/svi-abi" }
+
+# Exact integer math with explicit rounding. no_std, no Solana dependency.
+svi-math = { path = "../../../../crates/svi-math" }
+
+# Anchor 0.32's solana_program shim is assembled from granular crates and does
+# not re-export `hash`; take the hasher directly, at the version that shim uses.
+solana-sha256-hasher = "=2.3.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

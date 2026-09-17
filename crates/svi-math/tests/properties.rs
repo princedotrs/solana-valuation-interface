@@ -1,6 +1,9 @@
 use {
     proptest::prelude::*,
-    svi_math::{mul_div_ceil, mul_div_floor, pow10, quote_amount, rescale, Band, Rounding},
+    svi_math::{
+        deviation_bps, mul_div_ceil, mul_div_floor, pow10, pyth_band, quote_amount, rescale,
+        scale_by_pow10, Band, Rounding,
+    },
 };
 
 // ---------- worked examples from the spec ----------
@@ -55,6 +58,69 @@ fn band_tolerance() {
     assert_eq!(b.spread(), 2);
     assert_eq!(b.within_tolerance(200), Some(true));
     assert_eq!(b.within_tolerance(100), Some(false)); // 2/100 = 200 bps > 100
+}
+
+// ---------- oracle-price helpers ----------
+
+#[test]
+fn scale_by_pow10_moves_both_directions() {
+    assert_eq!(scale_by_pow10(123, 2, Rounding::Down), Some(12_300));
+    assert_eq!(scale_by_pow10(12_345, -2, Rounding::Down), Some(123));
+    assert_eq!(scale_by_pow10(12_345, -2, Rounding::Up), Some(124));
+    assert_eq!(scale_by_pow10(999, 0, Rounding::Down), Some(999));
+}
+
+/// A synthetic feed, not a real one: mantissa 19_234_567_800 at expo -8 is
+/// 192.345678, published here at 9 decimals.
+#[test]
+fn pyth_band_worked_example() {
+    let b = pyth_band(19_234_567_800, 1_500_000, -8, 9).unwrap();
+    assert_eq!(b.mid, 192_345_678_000);
+    assert_eq!(b.lower, 192_330_678_000); // (price - conf) * 10
+    assert_eq!(b.upper, 192_360_678_000); // (price + conf) * 10
+    assert!(b.lower <= b.mid && b.mid <= b.upper);
+}
+
+#[test]
+fn pyth_band_zero_confidence_is_a_point() {
+    let b = pyth_band(19_234_567_800, 0, -8, 9).unwrap();
+    assert_eq!(b.lower, b.mid);
+    assert_eq!(b.upper, b.mid);
+    assert_eq!(b.spread(), 0);
+}
+
+/// Confidence wider than the price is a real state of the world. We keep the
+/// band constructible with a floor of zero and let the caller's tolerance
+/// reject it, rather than failing here and losing the information.
+#[test]
+fn pyth_band_confidence_wider_than_price_saturates_at_zero() {
+    let b = pyth_band(1_000, 5_000, -2, 2).unwrap();
+    assert_eq!(b.lower, 0);
+    assert!(b.mid > 0);
+    assert_eq!(b.within_tolerance(100), Some(false));
+}
+
+#[test]
+fn pyth_band_refuses_non_positive_prices() {
+    assert!(pyth_band(0, 10, -8, 9).is_none());
+    assert!(pyth_band(-1, 10, -8, 9).is_none());
+    assert!(pyth_band(i64::MIN, 10, -8, 9).is_none());
+}
+
+#[test]
+fn deviation_worked_examples() {
+    assert_eq!(deviation_bps(100, 100), Some(0));
+    assert_eq!(deviation_bps(102, 100), Some(200)); // 2% premium
+    assert_eq!(deviation_bps(98, 100), Some(200));  // 2% discount, same magnitude
+    assert_eq!(deviation_bps(1, 0), None);
+}
+
+/// Rounding up matters: a deviation of 0.005% must not report as zero, or a
+/// threshold of "flag anything non-trivial" would never fire.
+#[test]
+fn deviation_rounds_up_so_small_drifts_are_visible() {
+    assert_eq!(deviation_bps(1_000_001, 1_000_000), Some(1));
+    assert_eq!(deviation_bps(999_999, 1_000_000), Some(1));
 }
 
 // ---------- properties ----------
@@ -134,5 +200,80 @@ proptest! {
             prop_assert!(band.lower <= band.mid);
             prop_assert!(band.mid <= band.upper);
         }
+    }
+
+    /// Whatever Pyth reports, the band we publish satisfies svi-core's
+    /// `lower <= quote <= upper` check. If this can fail, the adapter can
+    /// build an update the core will reject at runtime.
+    #[test]
+    fn pyth_band_always_satisfies_the_core_invariant(
+        price in 1i64..1_000_000_000_000,
+        conf in 0u64..1_000_000_000,
+        expo in -12i32..0,
+        out_decimals in 0u8..12,
+    ) {
+        if let Some(b) = pyth_band(price, conf, expo, out_decimals) {
+            prop_assert!(b.lower <= b.mid);
+            prop_assert!(b.mid <= b.upper);
+        }
+    }
+
+    /// Wider confidence can never produce a narrower band.
+    #[test]
+    fn wider_confidence_never_narrows_the_band(
+        price in 1i64..1_000_000_000,
+        c1 in 0u64..1_000_000,
+        c2 in 0u64..1_000_000,
+    ) {
+        let (lo, hi) = if c1 <= c2 { (c1, c2) } else { (c2, c1) };
+        if let (Some(a), Some(b)) = (pyth_band(price, lo, -8, 9), pyth_band(price, hi, -8, 9)) {
+            prop_assert!(a.spread() <= b.spread());
+        }
+    }
+
+    /// Deviation is symmetric about the reference: a premium and a discount of
+    /// the same size report the same magnitude.
+    ///
+    /// Only meaningful while the discount side does not clamp — a price cannot
+    /// fall more than 100%, so `delta` is capped at the reference. Without the
+    /// cap the test compares a premium of `delta` against a discount of only
+    /// `reference`, which are different distances and rightly differ.
+    #[test]
+    fn deviation_is_symmetric(reference in 1u64..1_000_000_000, raw_delta in 0u64..1_000_000) {
+        let delta = raw_delta.min(reference);
+        let up = reference.saturating_add(delta);
+        let down = reference - delta;
+        prop_assert_eq!(deviation_bps(up, reference), deviation_bps(down, reference));
+    }
+
+    /// A total loss reads as exactly 100%.
+    #[test]
+    fn deviation_of_a_worthless_market_price_is_10000_bps(reference in 1u64..1_000_000_000) {
+        prop_assert_eq!(deviation_bps(0, reference), Some(10_000));
+    }
+
+    /// Zero deviation if and only if the two values are equal.
+    #[test]
+    fn deviation_zero_iff_equal(market in 0u64..1_000_000_000, reference in 1u64..1_000_000_000) {
+        let d = deviation_bps(market, reference).unwrap();
+        prop_assert_eq!(d == 0, market == reference);
+    }
+
+    /// Never under-reports: the returned bps, applied back to the reference,
+    /// always covers the actual difference. This is what makes it safe to
+    /// compare against a threshold.
+    #[test]
+    fn deviation_never_under_reports(market in 0u64..1_000_000_000, reference in 1u64..1_000_000_000) {
+        let d = deviation_bps(market, reference).unwrap();
+        let covered = u128::from(d) * u128::from(reference);
+        let actual = u128::from(market.abs_diff(reference)) * 10_000u128;
+        prop_assert!(covered >= actual);
+    }
+
+    /// Scaling by a positive then the matching negative shift is lossless.
+    #[test]
+    fn scale_by_pow10_roundtrips(amount in 0u64..u64::MAX / 1_000_000_000, k in 0i32..9) {
+        let up = scale_by_pow10(amount, k, Rounding::Down).unwrap();
+        prop_assert_eq!(scale_by_pow10(up, -k, Rounding::Down), Some(amount));
     }
 }

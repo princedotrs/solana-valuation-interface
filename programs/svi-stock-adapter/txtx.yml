@@ -1,0 +1,16 @@
+---
+name: svi-stock-adapter
+id: svi-stock-adapter
+runbooks:
+  - name: publish
+    description: Deploy svi-core and the stock adapter, create the feed pair for each symbol, and publish
+    location: runbooks/publish
+environments:
+  localnet:
+      network_id: localnet
+      rpc_api_url: http://127.0.0.1:8899
+  devnet:
+      network_id: devnet
+      rpc_api_url: https://api.devnet.solana.com
+      payer_keypair_json: ~/.config/solana/id.json
+      authority_keypair_json: ~/.config/solana/id.json
