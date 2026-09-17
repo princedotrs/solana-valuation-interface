@@ -163,10 +163,20 @@ struct Quote {
     status_flags: u64,
 }
 
+/// A `Quote` account is 8 discriminator bytes plus a 320-byte payload, and the
+/// layout is frozen (`svi-core/tests/core.rs::layout_is_frozen`). Anything
+/// shorter is not a partially-written quote we could read the front of — it is
+/// a different account, and decoding it would produce numbers with no meaning.
+const QUOTE_PAYLOAD_LEN: usize = 320;
+
 impl Quote {
     fn decode(data: &[u8]) -> Result<Self> {
         let d = data.get(8..).ok_or_else(|| anyhow!("quote account too small"))?;
-        anyhow::ensure!(d.len() >= 304, "quote payload is {} bytes", d.len());
+        anyhow::ensure!(
+            d.len() >= QUOTE_PAYLOAD_LEN,
+            "quote payload is {} bytes, expected {QUOTE_PAYLOAD_LEN}",
+            d.len()
+        );
         let u = |o: usize| u64::from_le_bytes(d[o..o + 8].try_into().unwrap());
         Ok(Quote {
             base_amount: u(224),
