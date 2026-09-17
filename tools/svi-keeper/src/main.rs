@@ -24,6 +24,8 @@
 use std::env;
 use std::time::Duration;
 
+pub mod stock;
+
 use anchor_lang::solana_program::{
     clock::Clock,
     instruction::{AccountMeta, Instruction},
@@ -510,6 +512,144 @@ async fn watch(rpc_url: String) -> Result<()> {
     }
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tokenized stocks
+//
+// Separate functions rather than branches inside `crank`/`watch`: the Hylo
+// path carries surfnet clock-pinning and a single quote, and threading a
+// second shape through it would put the risk of breaking a working demo into
+// every future edit here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn deployments_path() -> std::path::PathBuf {
+    arg("--deployments")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(stock::default_path)
+}
+
+async fn crank_stock(rpc_url: String, kp_path: String, symbol: String) -> Result<()> {
+    let interval = arg("--interval").and_then(|s| s.parse().ok()).unwrap_or(10u64);
+    let path = deployments_path();
+    let deployments = stock::load(&path)?;
+    let f = deployments.get(&symbol)?.clone();
+
+    let rpc = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
+    let payer = read_keypair_file(&kp_path).map_err(|e| anyhow!("keypair {kp_path}: {e}"))?;
+
+    println!("svi-keeper crank        {symbol} every {interval}s  ({})", deployments.cluster);
+    println!("rpc                     {}", redact(&rpc_url));
+    println!("keeper                  {}  (any key works; the adapter PDA is the writer)", payer.pubkey());
+    println!("fair value quote        {}", f.fair_quote);
+    println!("market price quote      {}\n", f.market_quote);
+
+    for (name, key) in [("adapter", f.adapter), ("svi-core", f.svi_core)] {
+        let ok = rpc.get_account(&key).await.map(|a| a.executable).unwrap_or(false);
+        anyhow::ensure!(ok, "{name} ({key}) is not deployed on this cluster");
+    }
+
+    loop {
+        let started = std::time::Instant::now();
+        let now = chrono_like_now();
+        match send(&rpc, &payer, f.refresh_ix(&payer.pubkey())).await {
+            Ok(sig) => {
+                let fair = read_quote(&rpc, &f.fair_quote).await;
+                let market = read_quote(&rpc, &f.market_quote).await;
+                match (fair, market) {
+                    (Ok(fq), Ok(mq)) => println!(
+                        "{now}  {symbol}  fair ${}  market ${}  {}  seq {}  {}",
+                        usd(fq.quote_amount),
+                        usd(mq.quote_amount),
+                        premium(fq.quote_amount, mq.quote_amount),
+                        fq.sequence,
+                        stock::flag_names(fq.status_flags),
+                    ),
+                    _ => println!("{now}  published {}, but a quote did not read back", &sig[..16]),
+                }
+            }
+            Err(e) => println!("{now}  REFUSED    {}", stock::explain_stock(&e.to_string())),
+        }
+        let elapsed = started.elapsed();
+        if elapsed < Duration::from_secs(interval) {
+            tokio::time::sleep(Duration::from_secs(interval) - elapsed).await;
+        }
+    }
+}
+
+async fn read_quote(rpc: &RpcClient, key: &Pubkey) -> Result<Quote> {
+    Quote::decode(&rpc.get_account(key).await?.data)
+}
+
+/// Premium or discount of the token against its reference, as a signed string.
+fn premium(fair: u64, market: u64) -> String {
+    if fair == 0 {
+        return "n/a".into();
+    }
+    let diff = market as i128 - fair as i128;
+    let bps = diff.saturating_mul(10_000) / fair as i128;
+    format!("{}{}bps", if bps > 0 { "+" } else { "" }, bps)
+}
+
+async fn watch_stock(rpc_url: String, symbol: String) -> Result<()> {
+    let once = has("--once");
+    let path = deployments_path();
+    let deployments = stock::load(&path)?;
+    let f = deployments.get(&symbol)?.clone();
+    let rpc = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
+
+    loop {
+        let slot = rpc.get_slot().await?;
+        let mut out = String::new();
+        if !once {
+            out.push_str("\x1b[2J\x1b[H");
+        }
+        let fair = read_quote(&rpc, &f.fair_quote).await;
+        let market = read_quote(&rpc, &f.market_quote).await;
+        match (fair, market) {
+            (Ok(fq), Ok(mq)) => {
+                let age = slot.saturating_sub(fq.observed_slot);
+                let status = if slot <= fq.valid_until_slot { "VALID" } else { "STALE - do not use" };
+                out.push_str(&format!(
+                    "SVI  {symbol}  ({})\n\
+                     ---------------------------------------------------------\n\
+                     fair value     $ {}   per token   <- what the share is worth\n\
+                     market price   $ {}   per token   <- what the token trades at\n\
+                     premium        {}\n\
+                     \n\
+                     fair bounds    $ {} .. $ {}\n\
+                     market bounds  $ {} .. $ {}\n\
+                     \n\
+                     observed       slot {}   age {age} slots (~{:.0}s)   {status}\n\
+                     sequence       {}\n\
+                     flags          {}\n\
+                     \n\
+                     fair quote     {}\n\
+                     market quote   {}\n",
+                    deployments.cluster,
+                    usd(fq.quote_amount), usd(mq.quote_amount),
+                    premium(fq.quote_amount, mq.quote_amount),
+                    usd(fq.lower), usd(fq.upper),
+                    usd(mq.lower), usd(mq.upper),
+                    fq.observed_slot, age as f64 * 0.4,
+                    fq.sequence,
+                    stock::flag_names(fq.status_flags),
+                    f.fair_quote, f.market_quote,
+                ));
+            }
+            _ => out.push_str(&format!(
+                "{symbol}: quote accounts not readable yet ({} / {})\n",
+                f.fair_quote, f.market_quote
+            )),
+        }
+        out.push_str(&format!("\ncluster slot {slot}   rpc {}\n", redact(&rpc_url)));
+        print!("{out}");
+        if once {
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let rpc_url = arg("--rpc")
@@ -518,12 +658,26 @@ async fn main() -> Result<()> {
     let kp_path = arg("--keypair").or_else(|| env::var("SVI_KEYPAIR").ok()).unwrap_or_else(|| {
         format!("{}/.config/solana/id.json", env::var("HOME").unwrap_or_default())
     });
-    match env::args().nth(1).as_deref() {
-        Some("crank") => crank(rpc_url, kp_path).await,
-        Some("watch") => watch(rpc_url).await,
+    // `--feed` defaults to the original behaviour, so every existing
+    // invocation of this tool keeps working unchanged.
+    let selector = stock::FeedSelector::parse(
+        &arg("--feed").unwrap_or_else(|| "hylo-xsol".into()),
+    )?;
+
+    match (env::args().nth(1).as_deref(), &selector) {
+        (Some("crank"), stock::FeedSelector::HyloXsol) => crank(rpc_url, kp_path).await,
+        (Some("watch"), stock::FeedSelector::HyloXsol) => watch(rpc_url).await,
+        (Some("crank"), stock::FeedSelector::Stock(sym)) => {
+            crank_stock(rpc_url, kp_path, sym.clone()).await
+        }
+        (Some("watch"), stock::FeedSelector::Stock(sym)) => {
+            watch_stock(rpc_url, sym.clone()).await
+        }
         _ => bail!(
-            "usage:\n  svi-keeper crank [--interval SECS] [--surfnet] [--rpc URL] [--keypair PATH]\n  \
-             svi-keeper watch [--pyth] [--once] [--rpc URL]"
+            "usage:\n  \
+             svi-keeper crank [--feed hylo-xsol|stock:SYM] [--interval SECS] [--surfnet] [--rpc URL] [--keypair PATH]\n  \
+             svi-keeper watch [--feed hylo-xsol|stock:SYM] [--pyth] [--once] [--rpc URL]\n\n\
+             stock feeds read their addresses from deployments.json (override with --deployments PATH)"
         ),
     }
 }
