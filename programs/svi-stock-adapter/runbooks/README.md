@@ -34,6 +34,15 @@ A feed id is 32 bytes that decide which price a program accepts. A wrong one
 does not fail loudly; it publishes a real, fully-verified price for the wrong
 asset. That is why this is a fetch and not a table of constants.
 
+Then ask the cluster whether those feeds are actually usable on it:
+
+```
+python3 scripts/check-pyth.py --rpc https://api.devnet.solana.com
+```
+
+Read its verdict before going further -- it decides a config value that cannot
+be changed after a symbol is created. See "Do it locally first" below.
+
 ## 2. Build both programs, and read back their ids
 
 ```
@@ -81,6 +90,98 @@ Do **not** fall back to `solana program deploy` if this fails. Against an
 RPC-only endpoint it wants TPU and gossip it cannot reach, and a failed
 redeploy leaves the previous binary running — so a deploy that did nothing
 looks exactly like a code change that did nothing.
+
+---
+
+## Do it locally first
+
+Everything below runs against a Surfpool fork of mainnet, so the adapter reads
+the same Pyth bytes mainnet has, with no devnet SOL spent and nothing published
+that anyone will see. Get a green run here before step 4 above.
+
+A bare `solana-test-validator` will not work: the Pyth receiver program, its
+config and treasury accounts, the Wormhole guardian sets and the sponsored
+price accounts all have to exist, and a fork is the cheap way to have them.
+
+```
+surfpool start                                  # terminal 1, forks mainnet
+```
+
+```
+# terminal 2
+python3 scripts/fetch-feed-ids.py AAPL TSLA NVDA
+python3 scripts/check-pyth.py --rpc http://127.0.0.1:8899
+
+cd programs/svi-core          && anchor keys sync && anchor build && anchor keys list
+cd ../svi-stock-adapter       && anchor keys sync && anchor build && anchor keys list
+
+python3 scripts/plan-deployment.py \
+    --svi-core <ID> --adapter <ID> --cluster localnet
+
+cd programs/svi-stock-adapter
+surfpool run publish --env localnet --unsupervised
+```
+
+### Read `check-pyth.py` before you go further
+
+It is the step that decides how the rest of the deployment is configured, and
+the decision cannot be changed afterwards:
+
+- **"READ DIRECTLY"** — Pyth sponsors both feeds on this cluster. Leave
+  `min_verification_level = 1` and crank normally.
+- **"NEEDS `--post-updates`"** — no sponsored account, so the keeper brings the
+  price from Hermes. That posts atomically, which checks only a subset of
+  guardian signatures, so the update is **Partial** and the symbol must be
+  created with `min_verification_level = 0`.
+
+`min_verification_level` is set by `initialize_symbol` and **there is no
+instruction to change it**. The config PDA is seeded by the ticker, so a symbol
+created with the wrong value cannot be re-initialised — the account already
+exists. Recovering means deploying the adapter under a new program id.
+
+Get this right on the localnet run, where it costs nothing.
+
+### Then verify, in this order
+
+```
+# terminal 3
+cargo run --manifest-path tools/svi-keeper/Cargo.toml -- \
+    crank --feed stock:AAPL --interval 15 --rpc http://127.0.0.1:8899
+
+# terminal 4
+cargo run --manifest-path tools/svi-keeper/Cargo.toml -- \
+    watch --feed stock:AAPL --rpc http://127.0.0.1:8899
+
+# terminal 5 — the independent check
+cargo run --manifest-path tools/stock-check/Cargo.toml -- \
+    AAPL --rpc http://127.0.0.1:8899
+```
+
+What a green run looks like, and what each thing proves:
+
+| check | proves |
+|---|---|
+| the crank prints a fair value and a market price | both feeds verified and both quotes written |
+| `stock-check` prints `OK` | an implementation sharing no code agrees |
+| both quotes report the **same** `observed_slot` | they came from one instruction, so the pair cannot be half-updated |
+| `value_type` 7 on fair, 2 on market | the feeds are typed as consumers expect |
+| the dashboard shows values | the 320-byte layout decodes the same in the browser |
+
+Then deliberately break it, because the refusals are the product:
+
+```
+# point the keeper at the wrong price account and watch it abort
+# (edit deployments.json, swap equity_price and token_price)
+```
+
+Expect `PythFeedMismatch (6003)` — a real, fully verified Pyth price being
+refused because it is the wrong asset. That is the check that stops a
+malicious keeper, and seeing it fire is worth more than reading about it.
+
+### Only then go to devnet
+
+Re-run step 3 with `--cluster devnet`, re-run `check-pyth.py` against devnet
+(sponsorship differs per cluster, so the answer can change), and deploy.
 
 ---
 
