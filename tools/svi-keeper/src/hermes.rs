@@ -242,6 +242,29 @@ pub fn post_update_atomic_ix(
 }
 
 /// Ask Hermes for the latest signed update for one feed.
+/// One client for every Hermes request, carrying an agent that names the tool.
+///
+/// `reqwest::get` builds a fresh client per call, which throws away connection
+/// reuse, and sends whatever default agent the build happens to have. The CDN
+/// in front of Hermes refuses some of those outright, and the refusal arrives
+/// as a bare 403 that looks like a bad feed id rather than a rejected client.
+fn http_client() -> &'static reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .user_agent(concat!(
+                "svi-keeper/",
+                env!("CARGO_PKG_VERSION"),
+                " (+https://github.com/princedotrs/solana-valuation-interface)"
+            ))
+            .timeout(std::time::Duration::from_secs(20))
+            .build()
+            // Only fails if the TLS backend cannot start, which is not
+            // recoverable and not worth propagating through every call site.
+            .expect("building the HTTP client")
+    })
+}
+
 pub async fn fetch(base: &str, feed_id: &[u8; 32]) -> Result<SignedUpdate> {
     let url = format!(
         "{}/v2/updates/price/latest?ids[]={}&encoding=base64",
@@ -249,7 +272,9 @@ pub async fn fetch(base: &str, feed_id: &[u8; 32]) -> Result<SignedUpdate> {
         hex::encode(feed_id)
     );
 
-    let body: serde_json::Value = reqwest::get(&url)
+    let body: serde_json::Value = http_client()
+        .get(&url)
+        .send()
         .await
         .with_context(|| format!("GET {url}"))?
         .error_for_status()

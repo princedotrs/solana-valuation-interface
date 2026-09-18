@@ -492,7 +492,7 @@ async fn crank(rpc_url: String, kp_path: String) -> Result<()> {
                     q.flag_names(), &sig[..16]
                 );
             }
-            Err(e) => println!("{now}  REFUSED    {}", explain(&e.to_string())),
+            Err(e) => println!("{now}  REFUSED    {}", explain(&format!("{e:#}"))),
         }
         let elapsed = started.elapsed();
         if elapsed < Duration::from_secs(interval) {
@@ -681,7 +681,7 @@ async fn crank_stock(rpc_url: String, kp_path: String, symbol: String) -> Result
                     _ => println!("{now}  published {}, but a quote did not read back", &sig[..16]),
                 }
             }
-            Err(e) => println!("{now}  REFUSED    {}", stock::explain_stock(&e.to_string())),
+            Err(e) => println!("{now}  REFUSED    {}", stock::explain_stock(&format!("{e:#}"))),
         }
         let elapsed = started.elapsed();
         if elapsed < Duration::from_secs(interval) {
