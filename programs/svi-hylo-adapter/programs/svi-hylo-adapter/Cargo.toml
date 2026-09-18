@@ -14,7 +14,13 @@ default = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build"]
+# anchor-spl MUST be forwarded here. `#[derive(Accounts)]` on a struct holding
+# an anchor-spl type (this program uses `Account<Mint>`) generates IDL code
+# calling `Mint::create_type`, `Mint::DISCRIMINATOR` and `Mint::insert_types`,
+# and those only exist when anchor-spl's own idl-build feature is on. Without
+# it `anchor build` fails at IDL generation with three E0599s pointing at the
+# derive, which look like the derive is broken rather than a missing feature.
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
@@ -27,9 +33,12 @@ anchor-lang = "=0.32.1"
 
 # Hylo's own math and account types, pinned to an exact revision recorded
 # on-chain in AdapterConfig::sdk_revision. We reimplement none of it.
-hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f", features = ["offchain"] }
+hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
 hylo-idl = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
 hylo-fix = "0.8.0"
+# The wire format for calling svi-core. Zero dependencies, so it imposes no
+# version constraint of its own — which is the entire reason it exists.
+svi-abi = { path = "../../../../crates/svi-abi" }
 pyth-solana-receiver-sdk = "1.2.0"
 anchor-spl = "=0.32.1"
 # Anchor 0.32's solana_program shim is assembled from granular crates and does
@@ -37,11 +46,34 @@ anchor-spl = "=0.32.1"
 solana-sha256-hasher = "=2.3.0"
 
 [dev-dependencies]
-# NOTE: the litesvm/solana-3.x dev-stack the Anchor template ships cannot
-# coexist with hylo-core's pinned solana 2.3.x. Integration tests for this
-# program run against a built .so under `cargo-build-sbf`, so they live
-# outside this crate rather than forcing a dependency downgrade on the
-# library itself. Unit tests here need no runtime.
+# `offchain` ONLY here. It carries hylo-jupiter-amm-interface, solana-sdk and
+# solana-account-decoder, which must never reach the on-chain binary; under
+# resolver v2 dev-dependency features are not unified into the normal build,
+# so tests get hylo-core's real conversions to check ours against while the
+# program stays lean.
+hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f", features = ["offchain"] }
+
+# tests/surfnet.rs talks to a live Surfnet over RPC. These are the solana 2.x
+# client crates at the versions anchor 0.32's shim already pins, so nothing
+# here moves the program's own dependency graph.
+#
+# NOT hylo-quotes, even though it is the obvious off-chain reference: it pulls
+# in hylo-squads-multisig-program, whose SmallVec types have no IdlBuild impl.
+# `anchor build` generates the IDL with `cargo test --features idl-build`, and
+# dev-dependencies are in that graph, so the feature unifies onto that crate
+# and its AnchorSerialize derives fail with 18 E0599s. The test mirrors
+# hylo-quotes' build_lst_exchange_context with hylo-core's own conversions.
+solana-rpc-client = "=2.3.13"
+solana-rpc-client-api = "=2.3.13"
+solana-commitment-config = "=2.2.1"
+solana-keypair = "=2.2.3"
+solana-signer = "=2.2.1"
+solana-transaction = "=2.2.3"
+solana-message = "=2.4.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+anyhow = "1"
+serde_json = "1"
+hex = "0.4"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

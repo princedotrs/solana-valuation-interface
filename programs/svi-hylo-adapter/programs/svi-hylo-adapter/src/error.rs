@@ -30,4 +30,12 @@ pub enum AdapterError {
     WrongCoreProgram,
     #[msg("Arithmetic overflow")]
     MathOverflow,
+    // Appended, never inserted: Anchor derives error numbers positionally, so
+    // reordering this enum silently renumbers every code a consumer matches on.
+    #[msg("Hylo's TotalSolCache is not from the current epoch; it needs update_lst_prices")]
+    HyloCacheStale,
+    #[msg("Pyth price is older than Hylo's own configured interval")]
+    OracleStale,
+    #[msg("Pyth confidence interval is wider than Hylo's own tolerance")]
+    OracleConfidenceTooWide,
 }

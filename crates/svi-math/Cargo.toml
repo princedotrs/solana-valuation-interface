@@ -2,7 +2,9 @@
 name = "svi-math"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.89.0"
+# Shared with on-chain programs, so this must stay at or below the rustc
+# bundled with Solana platform-tools (1.84.1).
+rust-version = "1.84.0"
 description = "Exact integer fixed-point helpers with explicit rounding direction. No Solana dependency."
 license = "Apache-2.0"
 

@@ -1,0 +1,13 @@
+[package]
+name = "svi-abi"
+version = "0.1.0"
+edition = "2021"
+description = "The frozen wire format for calling svi-core. Zero dependencies, by design."
+
+# NO DEPENDENCIES. Not anchor, not solana-program, nothing.
+#
+# This crate exists so an adapter can call svi-core without agreeing with it
+# about any library version. The moment this depends on anything, it inherits
+# that thing's version constraints and stops solving the problem it exists to
+# solve. Keep this section empty.
+[dependencies]

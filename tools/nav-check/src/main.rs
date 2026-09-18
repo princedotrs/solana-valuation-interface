@@ -13,6 +13,7 @@
 //!     cargo run -- [RPC_URL]
 //!     RPC_URL=https://... cargo run
 //!     cargo run -- --json            # machine-readable, for piping
+//!     cargo run -- --addresses       # the mainnet accounts to clone locally
 //!
 //! Then compare `redeem NAV` against the xSOL price shown on hylo.so.
 
@@ -72,6 +73,22 @@ fn redact(url: &str) -> String {
 async fn main() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     let json = args.iter().any(|a| a == "--json");
+
+    // Print the accounts a local validator must clone to reproduce this
+    // computation offline. Sourced from hylo-quotes rather than hardcoded, so
+    // it cannot drift from what the adapter actually reads. The Clock sysvar
+    // is deliberately omitted: it exists natively, and `--warp-slot` is what
+    // gives it the right epoch.
+    if args.iter().any(|a| a == "--addresses") {
+        use hylo_quotes::protocol_state::ProtocolAccounts;
+        for pk in ProtocolAccounts::lst_pubkeys() {
+            if pk == anchor_lang::solana_program::sysvar::clock::ID {
+                continue;
+            }
+            println!("{pk}");
+        }
+        return Ok(());
+    }
     let url = args
         .iter()
         .find(|a| !a.starts_with("--"))

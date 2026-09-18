@@ -1,0 +1,18 @@
+[package]
+name = "txtx-encode-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Runs txtx's own borsh encoder against the real IDLs with the runbook's exact value shapes"
+
+# Pinned to what surfpool v0.10.8 bundles. txtx-addon-network-svm 0.3.8 does
+# not compile against newer txtx-addon-kit releases (the CommandImplementation
+# trait grew a parameter), so these three move together or not at all.
+[dependencies]
+txtx-addon-network-svm = "=0.3.8"
+txtx-addon-network-svm-types = "=0.3.7"
+txtx-addon-kit = "=0.4.8"
+bs58 = "0.5"
+hex = "0.4"
+
+[workspace]
