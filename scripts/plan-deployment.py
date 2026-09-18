@@ -658,7 +658,18 @@ def main() -> int:
         print(f"  {'':<6} mkt  {s['market_quote']}")
     print(f"\nwrote {args.out}")
     print(f"wrote {args.runbook}")
-    print(f"\n{len(plan)} symbol(s). Next: surfpool run publish --env {args.cluster} --unsupervised")
+    # The directory matters: surfpool reads ./txtx.yml from wherever it is run,
+    # and this repo has one per program. Printing the command without it sends
+    # the reader to "unable to read file ./txtx.yml", which reads like a missing
+    # file rather than a wrong working directory.
+    runbook_dir = args.runbook.resolve().parent.parent.parent
+    try:
+        shown = runbook_dir.relative_to(Path.cwd())
+    except ValueError:
+        shown = runbook_dir
+    print(f"\n{len(plan)} symbol(s). Next:")
+    print(f"    cd {shown}")
+    print(f"    surfpool run publish --env {args.cluster} --unsupervised")
     return 0
 
 
