@@ -45,12 +45,12 @@ pub struct InitSymbolParams {
 const MAX_BASE_DECIMALS: u8 = 18;
 
 /// A tolerance above this is not a tolerance. 10_000 bps is 100%.
-const MAX_BPS: u64 = 10_000;
+pub(crate) const MAX_BPS: u64 = 10_000;
 
 impl InitSymbolParams {
     /// Reject a config that could not produce a meaningful quote, at creation
     /// time rather than on every refresh afterwards.
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         // Symbol: non-empty, printable ASCII, zero-padded only at the end.
         let len = self
             .symbol
@@ -87,39 +87,75 @@ impl InitSymbolParams {
         // Thresholds must widen: mention it, then doubt it, then refuse it.
         // Out of order, a feed could be refused before it was ever flagged,
         // and the flags would be unreachable.
-        require!(
-            self.market_closed_secs <= self.reference_stale_secs
-                && self.reference_stale_secs <= self.reference_max_age_secs,
-            StockAdapterError::InvalidThresholds
-        );
-        require!(
-            self.token_stale_secs <= self.token_max_age_secs,
-            StockAdapterError::InvalidThresholds
-        );
-        require!(
-            self.reference_max_age_secs > 0 && self.token_max_age_secs > 0,
-            StockAdapterError::InvalidThresholds
-        );
+        validate_thresholds(
+            self.market_closed_secs,
+            self.reference_stale_secs,
+            self.reference_max_age_secs,
+            self.token_stale_secs,
+            self.token_max_age_secs,
+            self.max_deviation_bps,
+            self.max_conf_bps,
+            self.min_verification_level,
+        )?;
 
-        require!(
-            self.max_deviation_bps > 0 && self.max_deviation_bps <= MAX_BPS,
-            StockAdapterError::InvalidTolerance
-        );
-        require!(
-            self.max_conf_bps > 0 && self.max_conf_bps <= MAX_BPS,
-            StockAdapterError::InvalidTolerance
-        );
-
+        // Not shared: the quote scale is fixed when the symbol is created, so
+        // update_symbol_config has no equivalent field to check.
         require!(
             self.base_decimals <= MAX_BASE_DECIMALS,
             StockAdapterError::InvalidTolerance
         );
-        require!(
-            self.min_verification_level <= crate::pyth::FULL_VERIFICATION,
-            StockAdapterError::InvalidTolerance
-        );
         Ok(())
     }
+}
+
+/// The threshold rules every config must satisfy, whenever it is written.
+///
+/// Shared by `initialize_symbol` and `update_symbol_config` rather than written
+/// twice. Two copies would be two things to keep in step, and the failure mode
+/// of letting them drift is silent: `update_symbol_config` would be able to
+/// write a configuration that `initialize_symbol` refuses, so "every live
+/// config passed these checks" would stop being true without anything failing.
+#[allow(clippy::too_many_arguments)]
+pub fn validate_thresholds(
+    market_closed_secs: u64,
+    reference_stale_secs: u64,
+    reference_max_age_secs: u64,
+    token_stale_secs: u64,
+    token_max_age_secs: u64,
+    max_deviation_bps: u64,
+    max_conf_bps: u64,
+    min_verification_level: u8,
+) -> Result<()> {
+    // Thresholds must widen: mention it, then doubt it, then refuse it. Out of
+    // order, a feed could be refused before it was ever flagged, and the flags
+    // would be unreachable.
+    require!(
+        market_closed_secs <= reference_stale_secs
+            && reference_stale_secs <= reference_max_age_secs,
+        StockAdapterError::InvalidThresholds
+    );
+    require!(
+        token_stale_secs <= token_max_age_secs,
+        StockAdapterError::InvalidThresholds
+    );
+    require!(
+        reference_max_age_secs > 0 && token_max_age_secs > 0,
+        StockAdapterError::InvalidThresholds
+    );
+
+    require!(
+        max_deviation_bps > 0 && max_deviation_bps <= MAX_BPS,
+        StockAdapterError::InvalidTolerance
+    );
+    require!(
+        max_conf_bps > 0 && max_conf_bps <= MAX_BPS,
+        StockAdapterError::InvalidTolerance
+    );
+    require!(
+        min_verification_level <= crate::pyth::FULL_VERIFICATION,
+        StockAdapterError::InvalidTolerance
+    );
+    Ok(())
 }
 
 #[derive(Accounts)]

@@ -184,7 +184,8 @@ def byte_array(raw: bytes) -> str:
 
 
 def render_runbook(plan: list[dict], generated_at: str,
-                   skip_refresh: bool = False) -> str:
+                   skip_refresh: bool = False,
+                   verification_level: int = 1) -> str:
     out: list[str] = []
     w = out.append
 
@@ -412,7 +413,7 @@ action "init_{lo}_symbol" "svm::process_instructions" {{
             max_conf_bps           = {MAX_CONF_BPS},
             methodology_hash       = variable.methodology_hash,
             base_decimals          = 0,
-            min_verification_level = 1
+            min_verification_level = {verification_level}
         }}]
         authority {{ public_key = signer.authority.public_key }}
         config {{ public_key = variable.{lo}_config.pda }}
@@ -606,6 +607,18 @@ def main() -> int:
                          "permissionless crank that needs a fresh price. Bundling them "
                          "means an equity feed outside market hours aborts the whole "
                          "deployment after the programs are already live.")
+    ap.add_argument("--verification-level", type=int, choices=(0, 1), default=1,
+                    metavar="0|1",
+                    help="min_verification_level for every symbol. 1 (default) accepts "
+                         "only Pyth updates carrying a full guardian quorum. 0 also "
+                         "accepts partially verified ones, which is what posting your "
+                         "own price with the keeper's --post-updates produces. THIS "
+                         "CANNOT BE CHANGED AFTER A SYMBOL IS CREATED: the config PDA "
+                         "is seeded by the ticker, so a symbol made with the wrong "
+                         "value cannot be re-initialised, and recovering means "
+                         "redeploying the adapter under a new program id. Choose 0 "
+                         "only when the feeds are unsponsored on this cluster -- "
+                         "check-pyth.py says which.")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
 
@@ -651,14 +664,26 @@ def main() -> int:
         + "\n"
     )
     args.runbook.parent.mkdir(parents=True, exist_ok=True)
-    args.runbook.write_text(render_runbook(plan, now, args.skip_refresh))
+    args.runbook.write_text(
+        render_runbook(plan, now, args.skip_refresh, args.verification_level))
 
     for s in plan:
         print(f"  {s['symbol']:<6} fair {s['fair_quote']}")
         print(f"  {'':<6} mkt  {s['market_quote']}")
     print(f"\nwrote {args.out}")
     print(f"wrote {args.runbook}")
-    print(f"\n{len(plan)} symbol(s). Next: surfpool run publish --env {args.cluster} --unsupervised")
+    # The directory matters: surfpool reads ./txtx.yml from wherever it is run,
+    # and this repo has one per program. Printing the command without it sends
+    # the reader to "unable to read file ./txtx.yml", which reads like a missing
+    # file rather than a wrong working directory.
+    runbook_dir = args.runbook.resolve().parent.parent.parent
+    try:
+        shown = runbook_dir.relative_to(Path.cwd())
+    except ValueError:
+        shown = runbook_dir
+    print(f"\n{len(plan)} symbol(s). Next:")
+    print(f"    cd {shown}")
+    print(f"    surfpool run publish --env {args.cluster} --unsupervised")
     return 0
 
 
