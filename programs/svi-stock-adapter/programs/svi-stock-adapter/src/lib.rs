@@ -59,6 +59,20 @@ pub mod svi_stock_adapter {
         instructions::initialize::handle_initialize_symbol(ctx, p)
     }
 
+    /// Change a live symbol's thresholds, tolerances and required Pyth
+    /// verification level. Admin-only.
+    ///
+    /// Deliberately cannot touch the feed ids, quote accounts, descriptors or
+    /// core program: those say which asset this symbol *is*, and an authority
+    /// able to change them could repoint a published value at a different asset
+    /// without any consumer seeing a change.
+    pub fn update_symbol_config(
+        ctx: Context<UpdateSymbolConfig>,
+        p: UpdateSymbolParams,
+    ) -> Result<()> {
+        instructions::update_config::handle_update_symbol_config(ctx, p)
+    }
+
     /// Recompute this symbol's fair value and market price and publish both.
     /// Permissionless: anyone may crank.
     ///
