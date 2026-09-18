@@ -485,18 +485,19 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
   const rows = [
     [th("Component"), th("State"), th("What it is")],
     [td("programs/svi-core"), td("DONE", { bold: true, color: C.green }), td("Descriptor + 320-byte quote, layout asserted by test. Accepts a write only from the adapter PDA named in the descriptor. Sequence, validity, bounds enforced.")],
-    [td("programs/svi-stock-adapter"), td("DONE", { bold: true, color: C.green }), td("Two Pyth feeds in, two quotes out, one instruction. Verifies owner, feed id, verification level, publish time, age and confidence, and refuses on each. 19 tests.")],
+    [td("programs/svi-stock-adapter"), td("DONE", { bold: true, color: C.green }), td("Two Pyth feeds in, two quotes out, one instruction. Verifies owner, feed id, verification level, publish time, age and confidence, and refuses on each. Thresholds correctable in place. 26 tests.")],
     [td("programs/svi-hylo-adapter"), td("DONE", { bold: true, color: C.green }), td("Adapter #2: xSOL NAV computed by subtraction from Hylo's vault, hylo-core pinned to a commit. 17 tests, including a live run on a mainnet fork.")],
-    [td("tools/svi-keeper"), td("DONE", { bold: true, color: C.green }), td("Permissionless crank for both feeds, with decoded refusal codes. Posts its own Pyth updates from Hermes where a feed is not sponsored. 22 tests.")],
+    [td("tools/svi-keeper"), td("DONE", { bold: true, color: C.green }), td("Permissionless crank for both feeds, with decoded refusal codes. Can post its own Pyth updates where a feed is unsponsored, given a Hermes endpoint that serves it. 31 tests.")],
     [td("tools/stock-check + dashboard"), td("DONE", { bold: true, color: C.green }), td("An independent verifier sharing no code with the adapter, and a page that reads the accounts from the browser with no backend and no last-known value.")],
-    [td("Devnet deploy · MARKET_CLOSED observed"), td("NEXT", { bold: true, color: C.amber }), td("Runbook and address planner written and tested: four commands on a machine with a wallet. Turning the flag into a screenshot needs a keeper run across a real 16:00 ET close.")],
+    [td("A price source for the stock feeds"), td("BLOCKED", { bold: true, color: C.red }), td("Measured 18 Sep: Pyth's sponsored equity accounts are 6-34 days stale on mainnet, 78 days on devnet, and two of three xStock accounts do not exist on devnet at all. Hermes now answers 401 without a key. Deployment is four commands; the prices are the gap.")],
     [td("Sample lender · observer · audit"), td("NEXT", { color: C.muted }), td("No consumer reads the feed yet, which is the honest gap. No real collateral against these feeds until a third-party audit.")],
+    [td("check-pyth.py"), td("DONE", { bold: true, color: C.green }), td("Asks a cluster whether the feeds a deployment needs are fresh, correctly identified and fully verified, and says which of the three answers you have. It is how the row above was measured.")],
   ];
   table(s, rows, { x: M, y: 1.44, w: CW, colW: [3.0, 1.35, 7.743], fontSize: 11, rowH: 0.62 });
   card(s, { x: M, y: 6.5, w: CW, h: 0.6, fill: C.violet, line: C.violet });
   s.addText([
     { text: "The critical path is no longer engineering.  ", options: { color: C.paper, bold: true } },
-    { text: "It is a deployment, one observed market close, and a first consumer.", options: { color: "E4DDFB" } },
+    { text: "It is a price source for the stock feeds, and a first consumer. The Hylo feed needs neither.", options: { color: "E4DDFB" } },
   ], { x: M + 0.34, y: 6.64, w: CW - 0.68, h: 0.36, margin: 0, isTextBox: true, fontFace: F, fontSize: 15 });
   pageNum(s, false);
 }
@@ -612,14 +613,14 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
 {
   const s = lightSlide("Candour", "The objections worth raising, answered", { tint: true });
   const objs = [
-    ["“Isn't this just a Hylo wrapper?”",
-     "Today, yes, and the roadmap says so. The interface is the product: a second adapter that ships with zero changes to core or the wire format is the test, and it is stage 4. Until then, judge the design by whether the first adapter needed any cooperation from Hylo. It did not."],
+    ["“Doesn't Pyth already do this?”",
+     "For stocks it nearly does: Pyth publishes the share and the token as two unrelated feeds. Nobody publishes the relationship, and nobody refuses — Pyth will serve a 34-day-old AAPL price without complaint. For xSOL there is no feed at all: its NAV is computed from Hylo's own reserves, and that number exists nowhere else. We are a valuation layer, not a second price oracle."],
     ["“What if the adapter is wrong and someone gets liquidated?”",
      "A real risk. Hence: call hylo-core rather than reimplement it; refuse rather than publish on any unverified input; an observer that halts on a one-unit divergence; and no real collateral until a third-party audit. Until that audit, our own position is that no market should underwrite against these feeds."],
     ["“Is this a hackathon project that dies in November?”",
      "The mitigations hold regardless: everything open source, the keeper permissionless, the core small enough to freeze, and the methodology spec standing on its own as documentation of how xSOL is valued. If every line of SVI code were abandoned, the quote account keeps working until nobody cranks it — visibly."],
-    ["“What's in it for you?”",
-     "Reputation, a Colosseum submission with a working feed, and a shot at authoring a Solana standard. Not revenue — the standard and SDKs are permanently free and there is no token. Worth being blunt about, because an unexplained motivation is its own kind of risk."],
+    ["“Where does your price come from, and what when it stops?”",
+     "It has stopped. Pyth's sponsored stock accounts are 6-34 days stale on mainnet and mostly absent on devnet; Hermes now needs a key. So the stock feeds need a price source we do not yet have, and we say so on the status slide. The xSOL feed is unaffected — it reads Hylo's accounts directly. Our answer to a dead feed is the product: refuse, visibly, rather than publish the last thing we saw."],
   ];
   const cw = (CW - 0.3) / 2, ch = 2.44;
   objs.forEach(([q, a], i) => {

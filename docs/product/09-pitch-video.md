@@ -12,20 +12,38 @@ output. No mock-ups, no "coming soon" slides inside the demo.
 
 ---
 
+> **Superseded on 18 September. See `10-submission.md` for the current beats.**
+>
+> This document's shot list and discipline still hold. What changed is the
+> order: it opens on tokenized stocks, and stocks are now the *second* example.
+> Pyth's sponsored equity accounts turned out to be 6-34 days stale on mainnet
+> and 78 on devnet, and Hermes began answering 401 without a key, so the stock
+> feeds have no price source. The xSOL feed reads Hylo's accounts directly and
+> is unaffected -- it is the one number that exists nowhere else and works
+> today, so it leads.
+
 ## The one claim
 
-> **A tokenized stock trades all night. The company doesn't. SVI puts the real
-> value on-chain, in an account anyone can read, that tells you when the
-> market is shut.**
+> **Some assets have no price. Not a stale one -- none. xSOL is worth whatever
+> Hylo's reserves say it is worth, and nobody publishes that number. We do, in
+> an account anyone can read, and we refuse to publish when we cannot prove it.**
 
 Say it at the start, prove it in the middle, repeat it at the end.
+
+The stock version of this claim -- *a tokenized stock trades all night, the
+company does not* -- is still true and still worth showing. It is beat five,
+not beat one, because for stocks Pyth publishes both legs and our contribution
+is the comparison and the refusal. Real, and modest. Lead with the strong one.
 
 ### Three things never to say
 
 - **"Fresher than Pyth."** Pyth publishes the input; SVI publishes the output.
   A quote can never be fresher than the price it came from. Saying otherwise
   will get corrected in the replies, and deservedly.
-- **"Live on mainnet"** — until it is. Say "devnet", plainly, every time.
+- **"Live on mainnet"** — until it is. Name where it runs, plainly, every
+  time; a mainnet *fork* is a fork, and the xSOL demo runs on one. Do not say
+  "devnet" for the stock feeds either: nothing is published there, because
+  devnet's Pyth accounts are 78 days stale or absent.
 - **"Audited"**, or anything that implies it. It is not.
 
 ### The one thing to say that nobody else will
