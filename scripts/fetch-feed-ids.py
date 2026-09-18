@@ -33,6 +33,11 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from netutil import diagnose, tls_context  # noqa: E402
+
+
+
 HERMES = "https://hermes.pyth.network"
 FEEDS_PATH = "/v2/price_feeds"
 DEFAULT_SYMBOLS = ["AAPL", "TSLA", "NVDA"]
@@ -80,13 +85,20 @@ def index_by_symbol(payload: object) -> dict[str, str]:
     return out
 
 
+# Set by --from-file: a Hermes response captured elsewhere. The filtering and
+# pairing below are unchanged, so a file and a live fetch reach the same result.
+FROM_FILE: object | None = None
+
+
 def fetch(query: str, asset_type: str | None) -> tuple[object, str]:
     params = {"query": query}
     if asset_type:
         params["asset_type"] = asset_type
     url = f"{HERMES}{FEEDS_PATH}?{urllib.parse.urlencode(params)}"
+    if FROM_FILE is not None:
+        return FROM_FILE, f"{url}  (served from a local file)"
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30, context=tls_context()) as resp:
         return json.loads(resp.read().decode()), url
 
 
@@ -99,6 +111,9 @@ def resolve(sym: str) -> tuple[dict | None, list[str]]:
         equity_body, equity_url = fetch(sym, "equity")
         token_body, token_url = fetch(f"{sym}X", "crypto")
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        hint = diagnose(exc)
+        if hint:
+            print(f"\n{hint}\n", file=sys.stderr)
         return None, [f"{sym}: Hermes request failed: {exc}"]
 
     equity_map = index_by_symbol(equity_body)
@@ -173,7 +188,20 @@ def main() -> int:
     ap.add_argument("symbols", nargs="*", default=None)
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--from-file", type=Path, metavar="JSON",
+                    help="Read a saved Hermes /v2/price_feeds response instead of "
+                         "fetching. Use when this machine cannot reach Hermes; the "
+                         "file must list both the equity and the token feed.")
     args = ap.parse_args()
+
+    if args.from_file:
+        global FROM_FILE
+        try:
+            FROM_FILE = json.loads(args.from_file.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"{args.from_file}: {exc}", file=sys.stderr)
+            return 1
+        print(f"reading {args.from_file} instead of querying Hermes\n")
 
     if args.self_test:
         return self_test()
