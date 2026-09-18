@@ -796,7 +796,9 @@ async fn main() -> Result<()> {
              Pyth's sponsored accounts. Needed when a feed is not sponsored on\n                  \
              this cluster. Produces a Partial verification, so the symbol's\n                  \
              on-chain min_verification_level must be 0.\n  \
-             --hermes URL    override the Hermes endpoint (default hermes.pyth.network)"
+             --hermes URL    override the Hermes endpoint (default hermes.pyth.network)\n  \
+             HERMES_API_KEY  environment variable, sent as a bearer token when the\n                  \
+             endpoint requires one (a 401 says it does)"
         ),
     }
 }
