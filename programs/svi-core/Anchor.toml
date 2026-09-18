@@ -7,7 +7,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-svi_core = "H6495aW1Cxyoz2R7MuYVHF3Pu3FumFE9cZwKSJCR8oHH"
+svi_core = "5yVpoQJCtEqM1RC2Fn4D6rCSoq79e3tQ92Kx4fyePECN"
 
 [provider]
 cluster = "localnet"

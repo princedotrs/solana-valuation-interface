@@ -7,7 +7,7 @@ pub mod state;
 use error::SviError;
 use state::*;
 
-declare_id!("H6495aW1Cxyoz2R7MuYVHF3Pu3FumFE9cZwKSJCR8oHH"); // replaced by `anchor keys sync`
+declare_id!("5yVpoQJCtEqM1RC2Fn4D6rCSoq79e3tQ92Kx4fyePECN"); // replaced by `anchor keys sync`
 
 #[program]
 pub mod svi_core {

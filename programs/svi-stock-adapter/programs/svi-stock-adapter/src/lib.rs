@@ -44,7 +44,7 @@ pub use constants::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("3RmdZomoBXkWwGwvdjWK8ELYB4XeqHxTmrzedcmucHxq");
+declare_id!("8Lt5HjDy7rLwHSJs3hjjgi547Z7xitbnbfFbB97mPpfx");
 
 #[program]
 pub mod svi_stock_adapter {
