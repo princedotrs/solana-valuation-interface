@@ -1,0 +1,22 @@
+
+# local tooling installs, not project content
+.agents/
+.claude/skills/colosseum-copilot
+
+# Python bytecode from scripts/
+__pycache__/
+*.pyc
+
+# Copied into site/ at deploy time by netlify.toml; the root file is the source.
+site/deployments.json
+
+# Working notes and raw chat transcripts. Not part of the project.
+docs/context/
+
+# Rust build output, at any depth. Each crate also carries its own rule, but a
+# new crate is easy to add without one -- which is exactly how 577 MB of
+# tools/stock-check/target got committed. This rule is the backstop.
+target/
+
+# macOS finder droppings
+.DS_Store

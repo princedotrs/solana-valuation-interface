@@ -221,3 +221,91 @@ fn rejects_observation_too_old() {
         "expected ObservationTooOld, got {err}"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// value_type admission
+//
+// `initialize_feed` is the only gate on `value_type`. A type the core does not
+// know must be refused here, because nothing downstream re-checks it: the
+// Quote stores a bare `u8` and a consumer maps it back by number.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Try to create a feed with an arbitrary `value_type`, in a fresh VM.
+fn try_init_feed(value_type: u8, feed_id: [u8; 32]) -> Result<(), String> {
+    let admin = Keypair::new();
+    let mut svm = LiteSVM::new();
+    let bytes = include_bytes!(concat!(
+        env!("CARGO_TARGET_TMPDIR"),
+        "/../deploy/svi_core.so"
+    ));
+    svm.add_program(PROGRAM_ID, bytes).unwrap();
+    svm.airdrop(&admin.pubkey(), 1_000_000_000).unwrap();
+
+    let (descriptor, _) = Pubkey::find_program_address(&[b"descriptor", &feed_id], &PROGRAM_ID);
+    let (quote, _) = Pubkey::find_program_address(&[b"quote", &feed_id], &PROGRAM_ID);
+
+    let params = svi_core::InitFeedParams {
+        feed_id,
+        adapter_program: PROGRAM_ID,
+        adapter_authority: Pubkey::new_unique(),
+        adapter_config: Pubkey::default(),
+        base_mint: Pubkey::new_unique(),
+        quote_mint: Pubkey::default(),
+        methodology_hash: [0u8; 32],
+        max_age_slots: 200,
+        quote_currency_code: 840,
+        value_type,
+        base_decimals: 6,
+        quote_decimals: 9,
+    };
+    let ix = Instruction {
+        program_id: PROGRAM_ID,
+        accounts: svi_core::accounts::InitializeFeed {
+            authority: admin.pubkey(),
+            descriptor,
+            quote,
+            system_program: anchor_lang::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: svi_core::instruction::InitializeFeed { p: params }.data(),
+    };
+    send(&mut svm, &[ix], &admin, &[&admin])
+}
+
+fn feed_id_for(tag: u8) -> [u8; 32] {
+    let mut id = FEED_ID;
+    id[0] = tag;
+    id
+}
+
+/// Every discriminant the enum defines must be creatable. If this fails after
+/// adding a variant, the `require!` bound in `initialize_feed` was not bumped.
+#[test]
+fn accepts_every_known_value_type() {
+    for vt in 1..=(svi_core::state::ValueType::ReferenceFairValue as u8) {
+        assert!(
+            try_init_feed(vt, feed_id_for(vt)).is_ok(),
+            "value_type {vt} should be accepted"
+        );
+    }
+}
+
+/// The tokenized-stock adapter publishes a reference fair value alongside a
+/// market price, so this variant specifically has to be admissible.
+#[test]
+fn accepts_reference_fair_value() {
+    assert_eq!(svi_core::state::ValueType::ReferenceFairValue as u8, 7);
+    assert!(try_init_feed(7, feed_id_for(7)).is_ok());
+}
+
+#[test]
+fn rejects_unknown_value_type() {
+    let err = try_init_feed(8, feed_id_for(8)).unwrap_err();
+    assert!(err.contains("6008"), "expected InvalidValueType, got {err}");
+}
+
+#[test]
+fn rejects_zero_value_type() {
+    let err = try_init_feed(0, feed_id_for(200)).unwrap_err();
+    assert!(err.contains("6008"), "expected InvalidValueType, got {err}");
+}

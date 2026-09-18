@@ -1,0 +1,23 @@
+[package]
+name = "svi-e2e"
+version = "0.1.0"
+edition = "2021"
+description = "End-to-end: deploy, initialize, refresh, and read back a real SVI quote"
+
+[dependencies]
+# Same pinned SDK revision as the adapter and nav-check, so all three agree on
+# the math and the account set by construction rather than by discipline.
+hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f", features = ["offchain"] }
+hylo-quotes = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
+hylo-idl = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
+svi-abi = { path = "../../crates/svi-abi" }
+anchor-lang = "=0.32.1"
+solana-rpc-client = "=2.3.13"
+solana-commitment-config = "=2.2.1"
+solana-keypair = "=2.2.3"
+solana-signer = "=2.2.1"
+solana-transaction = "=2.2.3"
+solana-message = "=2.4.0"
+solana-sha256-hasher = "=2.3.0"
+anyhow = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

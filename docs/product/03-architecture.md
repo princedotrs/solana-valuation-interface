@@ -9,6 +9,14 @@
 
 ---
 
+> **Scope note.** The core, the quote account, the write path, the failure
+> states and the design rationale below are unchanged and apply to every
+> adapter. The worked example is Hylo's xSOL. For the tokenized-stock adapter
+> — two Pyth feeds in, two quotes out, in one instruction — see
+> [00-stocklana-overview.md](00-stocklana-overview.md) and the root
+> [README](../../README.md).
+
+
 ## 1. System context
 
 Gray = already exists, SVI touches nothing. Purple = SVI builds and deploys.
@@ -358,6 +366,85 @@ from us.** Core, quote format, mirror, observer and SDKs are all shared.
 
 ---
 
+## 7a. Why adapters don't link the core
+
+The single most surprising thing in this repo: `svi-core` is built on
+`anchor-lang 1.1.2`, the Hylo adapter on `0.32.1`, and they do not share a
+line of Rust. That is deliberate, and it is what makes SVI a standard rather
+than a library.
+
+### The forcing constraint
+
+`hylo-core` requires `anchor-lang = "=0.32.1"` — a hard equals, not a caret.
+Asking for that *and* `svi-core` puts two incompatible versions in one
+dependency graph. Cargo resolves both, and the compiler treats their types as
+unrelated:
+
+```
+error[E0308]: mismatched types: expected `__Pubkey`, found `solana_pubkey::Pubkey`
+error[E0277]: the trait bound `anchor_lang::prelude::Clock: SolanaClock` is not satisfied
+error[E0599]: no function named `try_deserialize` found for `hylo_idl::…::Hylo`
+error[E0599]: method `levercoin_redeem_nav` exists … but its trait bounds were not satisfied
+```
+
+`hylo-core` implements its traits for Anchor 0.32's `Clock`. Link Anchor 1.2
+and you get a *different* `Clock`, so every one of its methods quietly stops
+applying.
+
+### Why this is permanent, not a Hylo quirk
+
+Every adapter is pinned to the protocol it reads. A Meteora adapter takes
+Meteora's pins, a Sanctum adapter takes Sanctum's. Those will disagree with
+each other and with the core. Two bad options and one good one:
+
+| Option | Why not |
+|---|---|
+| Downgrade the core to match Hylo | Works until adapter #2 needs something else. Binds the core's version to whichever protocol happened to be first |
+| Make the core track the newest adapter | The core is the **trust anchor** — meant to be frozen and eventually immutable. Re-deploying it whenever a third party bumps a dependency is the opposite of that |
+| **Talk over bytes** | The core never moves. Any adapter, any framework, any version |
+
+Reimplementing Hylo's math to drop the dependency is not on the list: it is the
+one thing the methodology spec forbids, and the mainnet validation showed why
+— the published value matched Hylo's display at a truncation boundary
+precisely *because* SVI inherited their rounding convention instead of picking
+its own.
+
+### The contract
+
+[`crates/svi-abi`](../../crates/svi-abi) holds the wire format and has **zero
+dependencies** — not `anchor-lang`, not `solana-program`. It therefore imposes
+no version constraint and cannot conflict with anything an adapter already
+links. Adding a dependency to it would defeat its purpose entirely.
+
+It exposes the discriminator, the account order, a plain `QuoteUpdate`, and a
+`no_std` encoder returning a fixed 96-byte array (so publishing never
+allocates).
+
+Three tests hold it together, in `svi-core/tests/abi.rs`:
+
+| Test | What breaks without it |
+|---|---|
+| `discriminator_matches_anchor` | Every adapter calls the wrong instruction |
+| `svi_abi_encoding_is_byte_identical_to_anchor` | Adapters write misread values into quote accounts |
+| `anchor_can_decode_what_svi_abi_encodes` | Round-trip breaks |
+
+### The compatibility rule
+
+> **The discriminator is the version. Never change `QuoteUpdate` in place.**
+
+Borsh is positional. Transposing two `u64` fields keeps the payload the same
+length and deserializes without error — into the wrong values. So a layout
+change is a **new instruction with a new name**, hence a new discriminator, and
+an adapter built against the old one fails loudly with "instruction not found"
+rather than silently corrupting a feed.
+
+### `svi-mock-adapter` keeps the ergonomic path
+
+The mock links `svi-core` directly and uses Anchor's generated CPI helper,
+because it has no second constraint. Both routes into the core are exercised:
+the ergonomic one when an adapter's dependencies allow it, the byte ABI when
+they don't. An adapter author picks whichever their protocol permits.
+
 ## 8. Feed set — Hylo
 
 Never one ambiguous feed called `xSOL/USD`. Value semantics are explicit,
@@ -382,6 +469,7 @@ entry, not a new API.
 
 | Component | State | Notes |
 |---|---|---|
+| `crates/svi-abi` | **Done** | Zero-dependency wire format so adapters never link the core. `no_std`, fixed-size encoding, 3 tests |
 | `crates/svi-math` | **Done** | Exact `u128`-intermediate integer math, mandatory explicit rounding, `no_std`, `#![deny(clippy::arithmetic_side_effects)]`, property tests |
 | `programs/svi-core` | **Done** | Descriptor + 320-byte zero-copy Quote with compile-time layout assertion, `publish_quote` with the 4 rules, events, admin freeze |
 | `docs/hylo-xsol-nav-v1-spec.md` | **Draft v0.9** | Pending Hylo answers to §10; 5 open questions |

@@ -1,0 +1,21 @@
+[package]
+name = "stock-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Independently reproduce a published stock quote from Pyth and the chain"
+
+[[bin]]
+name = "stock-check"
+path = "src/main.rs"
+
+[dependencies]
+# Deliberately NOT depending on svi-stock-adapter or svi-keeper. This binary is
+# the second opinion; sharing their code would make an agreement between them
+# meaningless.
+anyhow = "1"
+hex = "0.4"
+serde_json = "1"
+base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

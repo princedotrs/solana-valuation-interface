@@ -1,89 +1,77 @@
 # SVI — One Pager
 
 ### Solana Valuation Interface
-*On-chain valuation for assets whose value is a formula, not a trade.*
+*On-chain fair value for tokenized stocks.*
 
 ---
 
-**THE PROBLEM.** Protocol-derived assets — leveraged tokens, vault shares,
-LSTs, receipt tokens, tokenized funds — don't have a price set by trading. They
-have a *value* defined by a formula over on-chain state. The industry prices
-them anyway by pretending otherwise: a server reads protocol state over RPC,
-runs private arithmetic, and publishes the output as if it were an observed
-market price. The number arrives having lost the one property that made it
-trustworthy — the ability for anyone to recompute it.
+**THE PROBLEM.** A tokenized stock like **AAPLx** trades on Solana twenty-four
+hours a day. The share it represents trades six and a half. For roughly two
+thirds of every week the token has a price and the company does not — thin
+overnight books, no arbitrage possible, because the thing it tracks is closed.
 
-That pipeline has **five trusted hops** and no way for a consumer to check any
-of them. Hylo is being asked by Pyth to build exactly this, today.
+Nothing on-chain says so. A lending market reading the token's 3am price reads
+a number with no indication that it is a guess made in an empty room, and
+liquidates against it anyway.
 
 ---
 
-**WHAT BREAKS.** The valuation layer, not the chain state:
+**THE FIX.** For each stock, one Solana transaction reads two Pyth feeds and
+writes two accounts anyone can read:
 
-| Loopscale · Apr 2025 | **$5.8M** — the lender's own pricing of RateX PT tokens was wrong |
-| Moonwell · 2025 | **$1.8M bad debt** — a config change dropped the ETH/USD leg from cbETH; bots liquidated |
-| wUSDM / Venus · Feb 2026 | share exchange rate pushed 1.06 → 1.7 by donation attack |
-| YieldBlox · Feb 2026 | **$10.2M** — thin-liquidity VWAP on a tokenized treasury |
+- **fair value** — what the real share is worth (`Equity.US.AAPL/USD`)
+- **market price** — what the token trades at (`Crypto.AAPLX/USD`)
 
-In every case **no on-chain account was ever wrong.**
-
----
-
-**THE SOLUTION.** The value is computed by a program *on-chain*, from accounts
-it verifies (owner, PDA derivation, mint, program ID), and written to a public
-320-byte account anyone can read and independently reproduce byte-for-byte.
-
-- **Adapter** — one per protocol. Reads the protocol's public account bytes and calls the protocol's own math library. Reimplements nothing.
-- **Core** — tiny, protocol-agnostic, auditable, freezable. Only a registered adapter's PDA may write. Sequence monotonic, freshness enforced.
-- **Quote account** — the product. Value + bounds + `observed_slot` + `valid_until_slot` + `methodology_hash` + `value_type`.
-- **Keeper** — permissionless. Pays gas; **cannot influence the value**.
-- **Observer** — independently recomputes and halts the mirror on any divergence.
-
-> **Fail stale, never fail wrong.** Any unverified input aborts the refresh.
-> No code path publishes a value computed from unvalidated inputs.
-
-**Zero cooperation required.** Solana programs have no view functions and none
-are needed — account data is public bytes, and all reads inside one transaction
-are same-slot consistent. No protocol ever changes a line of code.
+Both written in the same instruction, so the pair can never be half-updated.
+Each carries Pyth's confidence interval as explicit bounds, the slot it
+expires at, and flags: `MARKET_CLOSED`, `REFERENCE_STALE`, `TOKEN_FEED_STALE`,
+`DEVIATION_HIGH`.
 
 ---
 
-**MARKET.** ~$20B+ on Solana whose value is a formula: ~$15B LST supply,
-**$3.7B** tokenized RWA (**4× in six months**), plus vault, LP and receipt
-tokens. Lending markets carrying the valuation risk today: Kamino ~$2.1B,
-marginfi ~$700M, Save ~$400M, Drift spot ~$300M.
+**WHY THE FLAGS ARE THE PRODUCT.** The value is the easy part. What makes this
+worth deploying is that the account says *what kind of moment it was taken
+in*. `MARKET_CLOSED` is not an error — an equity feed is supposed to be hours
+old overnight. It is information a consumer can act on: widen the margin, or
+refuse the position.
 
-**Competitive position.** Pyth and Chainlink price *traded* assets — SVI has
-nothing to say about SOL/USD and Pyth is customer #1. Kamino Scope proves the
-adapter model at scale but is internal to Kamino. Switchboard runs the math
-off-chain in a TEE. sRFC 40 standardises vault NAV flows only. **Nobody
-publishes reproducible on-chain valuation as an open interface.**
-
----
-
-**STATUS.** `svi-math` ✅ done · `svi-core` ✅ done · `svi-mock-adapter` ✅ done ·
-`hylo-xsol-nav-v1` methodology spec 🟡 draft v0.9 · `svi-hylo-adapter` 🔒
-blocked on five questions to Hylo. Keeper, mirror API and observer are phase 2.
-
-**Cost to reach mainnet:** <$500 deployment, $50–150/mo operating. Audit
-($30–80k) deferred until a lender actually depends on a feed.
+Three thresholds per feed, all on-chain where a third party can read them:
+15 minutes flags, 4 days doubts, 8 days **refuses**. Past the refusal the
+adapter publishes nothing and the previous quote expires. *Fail stale, never
+fail wrong* — an expired quote stops a consumer; a plausible wrong one does
+not.
 
 ---
 
-**THE ASK — HYLO.** Five technical answers (one engineer-afternoon), permission
-to name Hylo as design partner, and a co-announcement at launch. **No program
-changes, no engineering sprint, no funding, no exclusivity.**
+**WHY YOU CAN BELIEVE IT.** No API. The math runs in a Solana program, the
+inputs are Pyth accounts, the output is an account you read directly.
 
-**TIMELINE.** ~6 weeks from spec freeze to Pyth evaluating. Colosseum runs
-**28 Sep – 2 Nov 2026**.
+Cranking is permissionless and the keeper holds no privileged key — `svi-core`
+accepts the write only because the *adapter program's own PDA* signed the CPI.
+The 32-byte Pyth feed id inside each price account is re-checked on-chain every
+refresh, so nobody can pass a real, fully verified price for a cheaper asset
+and have it published as Apple's.
+
+And `tools/stock-check` will re-run the whole thing against Pyth using none of
+SVI's code.
 
 ---
 
-**HONEST CAVEATS.** Standards don't monetise — realistic year-one revenue is low
-six figures at best, from services beside a permanently free standard. This is a
-position and reputation play, not a venture-scale SaaS. Incumbents could build
-it in weeks; the defensible assets are methodology specs, audits, track record
-and partner relationships, not code. SVI does **not** remove Pyth's publisher
-key risk, and claiming otherwise would be dishonest.
+**IT ALREADY GENERALISES.** Before stocks, SVI published the NAV of Hylo's
+xSOL — a value computed by *subtraction* from a protocol's vault, with no
+market price anywhere. Same core, same 320-byte account, same write path;
+only the adapter differs. On 10 Sep 2026 it published a real quote on a
+mainnet fork and an independent reader agreed to the last digit:
+`$0.060285498`.
 
-*github.com/princedotrs/solana-valuation-interface*
+An oracle gives you a number. An **interface** gives every kind of value a
+common way to be published, checked and refused.
+
+---
+
+**STATUS.** Adapter, core, keeper, verifier, deploy runbook and dashboard are
+written and tested — 91 Rust tests, plus the JS and Python suites, all green.
+The devnet deployment and a keeper run spanning a US market close are the next
+step. Unaudited, and it says so everywhere.
+
+`github.com/princedotrs/solana-valuation-interface`
