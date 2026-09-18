@@ -100,10 +100,25 @@ machine cannot verify TLS. A python.org build on macOS ships its own empty
 trust store and never reads the system keychain, which is usually the cause:
 
 ```
-/Applications/Python\ 3.x/Install\ Certificates.command   # macOS
-python3 -m pip install certifi                            # any platform
-export SSL_CERT_FILE="$(python3 -m certifi)"              # use the bundle you have
+python3 -m pip install certifi
+export SSL_CERT_FILE="$(python3 -m certifi)"
 ```
+
+Add that `export` to `~/.zshrc` to make it stick. It needs no installer and no
+`sudo`, and it is the only step most machines need.
+
+macOS also ships a fixer at `/Applications/Python 3.x/Install Certificates.command`,
+but plenty of installs do not have that folder at all -- check with
+`ls /Applications | grep -i python` before hunting for it. When it is missing:
+
+```
+python3 scripts/netutil.py --link-certifi
+```
+
+which links the certifi bundle into the exact path OpenSSL checks, so every
+tool using that Python is fixed rather than just these scripts. It refuses to
+touch a trust store that is a real file rather than a symlink, and says to use
+the environment variable instead if the directory is root-owned.
 
 **`Tunnel connection failed: 403 Forbidden`** — an HTTPS proxy refused the
 host. That is a network policy, not a bug, and no other ticker will work.

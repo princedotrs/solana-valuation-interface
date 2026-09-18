@@ -54,7 +54,8 @@ def diagnose(exc: BaseException) -> str | None:
             "store problem, not a Hermes outage. Pick one:\n"
             "  any platform:             python3 -m pip install certifi\n"
             '  certifi you already have: export SSL_CERT_FILE="$(python3 -m certifi)"\n'
-            '  permanent, macOS:         /Applications/Python 3.x/Install Certificates.command\n'
+            '  find the macOS fixer:     ls /Applications | grep -i python\n'
+            '  if it is not there:       python3 scripts/netutil.py --link-certifi\n'
             "Then re-run. To proceed without network access at all, see --from-file."
         )
     if "403" in text and ("Tunnel" in text or "proxy" in text.lower()):
@@ -66,3 +67,63 @@ def diagnose(exc: BaseException) -> str | None:
             "  python3 scripts/fetch-feed-ids.py --from-file aapl.json ..."
         )
     return None
+
+
+def link_certifi() -> int:
+    """Do what the macOS Install Certificates.command does, without needing it.
+
+    A python.org build looks for one specific CA file and ships without it, so
+    every HTTPS request fails until something puts a bundle there. The installer
+    leaves that to a .command file in /Applications which is easy to move, delete
+    or never notice. This links the certifi bundle into the exact path OpenSSL
+    checks, so the fix survives new shells and applies to every tool using this
+    Python, not just the scripts in this repo.
+    """
+    import ssl as _ssl
+
+    try:
+        import certifi
+    except ImportError:
+        print("certifi is not installed. Run: python3 -m pip install certifi", file=sys.stderr)
+        return 1
+
+    target = _ssl.get_default_verify_paths().openssl_cafile
+    source = certifi.where()
+    if not target:
+        print("This Python reports no default CA file path, so there is nowhere to link.\n"
+              'Use the environment variable instead: export SSL_CERT_FILE="$(python3 -m certifi)"',
+              file=sys.stderr)
+        return 1
+
+    target_path = Path(target)
+    print(f"OpenSSL looks for  {target}")
+    print(f"certifi bundle is  {source}")
+
+    if target_path.exists() and not target_path.is_symlink():
+        print(f"\n{target} already exists and is a real file, not a symlink.")
+        print("Refusing to replace it -- something else manages this trust store.")
+        print('Use: export SSL_CERT_FILE="$(python3 -m certifi)"', file=sys.stderr)
+        return 1
+
+    try:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        if target_path.is_symlink():
+            target_path.unlink()
+        target_path.symlink_to(source)
+    except OSError as exc:
+        print(f"\nCould not write the link: {exc}")
+        print("That directory is probably root-owned. Either re-run with sudo, or skip")
+        print('this entirely: export SSL_CERT_FILE="$(python3 -m certifi)"', file=sys.stderr)
+        return 1
+
+    ctx = _ssl.create_default_context()
+    loaded = ctx.cert_store_stats().get("x509_ca", 0)
+    print(f"\nlinked. The default context now loads {loaded} CA certificates.")
+    return 0 if loaded > 0 else 1
+
+
+if __name__ == "__main__":
+    if "--link-certifi" in sys.argv:
+        sys.exit(link_certifi())
+    print(__doc__)
+    print("Usage: python3 scripts/netutil.py --link-certifi")
