@@ -227,6 +227,63 @@ malicious keeper, and seeing it fire is worth more than reading about it.
 Re-run step 3 with `--cluster devnet`, re-run `check-pyth.py` against devnet
 (sponsorship differs per cluster, so the answer can change), and deploy.
 
+### `PythTooOld (6006)` during publish
+
+Both programs deployed, then every `refresh_stock` aborted. This is the adapter
+working: the price it was handed was too old to be evidence, so it refused to
+publish rather than write a stale number a consumer would trust.
+
+It happens on a fork for reasons that have nothing to do with your deployment:
+
+- **Nothing updates a forked account.** Surfpool snapshots mainnet state; no
+  publisher pushes new Pyth updates into your local fork, so the price ages from
+  the moment you start and never refreshes. The token leg's limit is 30 minutes.
+- **The mainnet account may already be stale.** Sponsored feeds are updated when
+  someone pays to update them. A thinly-traded xStock feed can be hours old.
+- **Equity feeds stop outside market hours.** `Equity.US.AAPL/USD` does not tick
+  at night or on weekends. That is not a malfunction, and the 8-day reference
+  limit exists precisely so a weekend does not invalidate a fair value.
+
+Find out which leg and by how much:
+
+```
+python3 scripts/check-pyth.py --rpc http://127.0.0.1:8899 --deployments deployments.json
+```
+
+The adapter now logs the same thing itself, so the transaction tells you:
+
+```
+feed aaaaaaaa is 4213s old, limit 1800s (published 1758… , now 1758…)
+```
+
+The first four bytes of the feed id are enough to tell a symbol's two legs
+apart, which the bare error code could not.
+
+**To get unblocked**, deploy and initialise without publishing:
+
+```
+python3 scripts/plan-deployment.py --svi-core <ID> --adapter <ID> \
+    --cluster localnet --skip-refresh
+surfpool run publish --env localnet --unsupervised
+```
+
+Then crank separately, with the keeper posting a fresh price from Hermes:
+
+```
+cargo run --manifest-path tools/svi-keeper/Cargo.toml -- \
+    crank --feed stock:AAPL --rpc http://127.0.0.1:8899 --post-updates
+```
+
+`--post-updates` is what makes this work: it fetches the current price and posts
+it in the same transaction, so `publish_time` is now rather than whenever the
+fork was taken. Remember that a posted update is only **Partially** verified, so
+the symbol must have been created with `min_verification_level = 0`.
+
+Initialising and refreshing are separate for this reason. Creating a symbol
+succeeds whenever the chain is up; publishing a quote needs a price fresh enough
+to mean something. Bundling them lets a closed market abort a runbook after the
+expensive steps have already succeeded.
+
 ---
 
 ## Cranking

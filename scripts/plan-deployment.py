@@ -183,7 +183,8 @@ def byte_array(raw: bytes) -> str:
     return "[\n        " + body + "\n    ]"
 
 
-def render_runbook(plan: list[dict], generated_at: str) -> str:
+def render_runbook(plan: list[dict], generated_at: str,
+                   skip_refresh: bool = False) -> str:
     out: list[str] = []
     w = out.append
 
@@ -420,7 +421,16 @@ action "init_{lo}_symbol" "svm::process_instructions" {{
     signers = [signer.authority]
     depends_on = [action.init_{lo}_market_feed]
 }}
+''')
 
+        # Refreshing is deliberately separable. Creating a symbol is permanent
+        # setup that succeeds whenever the chain is up; publishing a quote needs a
+        # price fresh enough to be evidence, which an equity feed simply is not
+        # outside market hours. Bundling them means a closed market aborts the
+        # runbook after both programs are already deployed, leaving a half-done
+        # deployment whose remaining steps are the ones that cost real money.
+        if not skip_refresh:
+            w(f'''
 # Signed by the payer, not the authority: cranking is permissionless, and the
 # keeper cannot influence the value that gets written.
 action "refresh_{lo}" "svm::process_instructions" {{
@@ -451,7 +461,9 @@ action "refresh_{lo}" "svm::process_instructions" {{
     signers = [signer.payer]
     depends_on = [action.init_{lo}_symbol]
 }}
+''')
 
+        w(f'''
 output "{lo}_fair_quote" {{
     description = "{sym} fair value -- what the real share is worth"
     value = variable.{lo}_fair_quote.pda
@@ -588,6 +600,12 @@ def main() -> int:
     ap.add_argument("--feeds", type=Path, default=FEEDS_IN)
     ap.add_argument("--out", type=Path, default=DEPLOYMENTS_OUT)
     ap.add_argument("--runbook", type=Path, default=RUNBOOK_OUT)
+    ap.add_argument("--skip-refresh", action="store_true",
+                    help="Emit the runbook without the closing refresh_stock calls. "
+                         "Initialising a symbol is permanent setup; refreshing is a "
+                         "permissionless crank that needs a fresh price. Bundling them "
+                         "means an equity feed outside market hours aborts the whole "
+                         "deployment after the programs are already live.")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
 
@@ -633,7 +651,7 @@ def main() -> int:
         + "\n"
     )
     args.runbook.parent.mkdir(parents=True, exist_ok=True)
-    args.runbook.write_text(render_runbook(plan, now))
+    args.runbook.write_text(render_runbook(plan, now, args.skip_refresh))
 
     for s in plan:
         print(f"  {s['symbol']:<6} fair {s['fair_quote']}")
