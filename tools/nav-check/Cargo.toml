@@ -1,0 +1,18 @@
+[package]
+name = "nav-check"
+version = "0.1.0"
+edition = "2021"
+description = "Reproduce Hylo's xSOL NAV from mainnet state using hylo-core, and print it for comparison against hylo.so"
+
+[dependencies]
+# Pinned to an exact SDK revision on purpose: this is the same discipline the
+# adapter uses (methodology spec §2). If Hylo redeploys, we re-pin deliberately
+# rather than silently tracking a moving branch.
+hylo-core = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
+hylo-quotes = { git = "https://github.com/hylo-so/sdk", rev = "ee8d1cba023ae26d5e81c77ccab52a4f71c44a3f" }
+solana-rpc-client = "=2.3.13"
+solana-commitment-config = "=2.2.1"
+anchor-lang = "=0.32.1"
+hylo-fix = "0.8.0"
+anyhow = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
