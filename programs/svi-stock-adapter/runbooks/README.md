@@ -102,7 +102,7 @@ trust store and never reads the system keychain, which is usually the cause:
 ```
 /Applications/Python\ 3.x/Install\ Certificates.command   # macOS
 python3 -m pip install certifi                            # any platform
-export SSL_CERT_FILE=/path/to/ca-bundle.crt               # explicit bundle
+export SSL_CERT_FILE="$(python3 -m certifi)"              # use the bundle you have
 ```
 
 **`Tunnel connection failed: 403 Forbidden`** — an HTTPS proxy refused the

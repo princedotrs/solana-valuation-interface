@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import ssl
+import sys
 from pathlib import Path
 
 
@@ -24,8 +25,15 @@ def tls_context() -> ssl.SSLContext:
     """
     for var in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE"):
         path = os.environ.get(var)
-        if path and Path(path).exists():
+        if not path:
+            continue
+        if Path(path).exists():
             return ssl.create_default_context(cafile=path)
+        # Saying nothing here is how a typo'd or copy-pasted placeholder path
+        # survives: the variable looks set, TLS still fails, and the error
+        # names a certificate problem rather than the empty variable causing it.
+        print(f"warning: {var} is set to {path!r}, which does not exist -- ignoring it",
+              file=sys.stderr)
     try:
         import certifi
         return ssl.create_default_context(cafile=certifi.where())
@@ -44,9 +52,9 @@ def diagnose(exc: BaseException) -> str | None:
         return (
             "This machine cannot verify TLS certificates -- it is a local trust\n"
             "store problem, not a Hermes outage. Pick one:\n"
-            "  macOS, python.org build:  /Applications/Python\\ 3.x/Install\\ Certificates.command\n"
             "  any platform:             python3 -m pip install certifi\n"
-            "  explicit bundle:          export SSL_CERT_FILE=/path/to/ca-bundle.crt\n"
+            '  certifi you already have: export SSL_CERT_FILE="$(python3 -m certifi)"\n'
+            '  permanent, macOS:         /Applications/Python 3.x/Install Certificates.command\n'
             "Then re-run. To proceed without network access at all, see --from-file."
         )
     if "403" in text and ("Tunnel" in text or "proxy" in text.lower()):
