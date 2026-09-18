@@ -79,6 +79,22 @@ impl VerifiedPrice {
 /// returned; deciding that an old equity price means "the market is closed"
 /// rather than "the oracle is broken" is a judgement the caller makes with its
 /// own thresholds, because the answer differs between the two feeds.
+/// First four bytes of a feed id as hex, for log messages.
+///
+/// A full 32-byte id costs compute to format and is unreadable in a terminal;
+/// four bytes is enough to tell a symbol's two feeds apart, which is the only
+/// thing a log reader needs here. Fixed-size buffer, no allocation.
+fn hex_prefix(feed_id: &[u8; 32]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = [0u8; 8];
+    for (i, b) in feed_id[..4].iter().enumerate() {
+        out[i * 2] = HEX[(b >> 4) as usize];
+        out[i * 2 + 1] = HEX[(b & 0x0f) as usize];
+    }
+    // The buffer holds only ASCII hex digits by construction.
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 pub fn load_verified(
     account: &AccountInfo,
     expected_feed_id: &[u8; 32],
@@ -133,7 +149,24 @@ pub fn load_verified(
 
     // 6. Hard age limit. Past this the number is not evidence of anything, and
     //    no flag can make it usable.
-    require!(age_secs <= max_age_secs, StockAdapterError::PythTooOld);
+    //
+    //    Logged before the check because the error code alone cannot say which
+    //    of a symbol's two feeds was stale, or by how much. A refresh passes
+    //    two price accounts; "PythTooOld" identifies neither, and an operator
+    //    reading it has no way to tell a closed equity market from a keeper
+    //    that stopped posting token prices. Costs a few compute units on the
+    //    failing path only.
+    if age_secs > max_age_secs {
+        msg!(
+            "feed {} is {}s old, limit {}s (published {}, now {})",
+            hex_prefix(expected_feed_id),
+            age_secs,
+            max_age_secs,
+            publish_time,
+            now_unix
+        );
+        return Err(error!(StockAdapterError::PythTooOld));
+    }
 
     // 7. Convert to our scale. Rejects non-positive prices and anything that
     //    does not fit; the confidence interval becomes the published bounds.

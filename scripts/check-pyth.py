@@ -182,10 +182,10 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
         notes.append(f"    Partial verification: this symbol needs min_verification_level = 0.")
     if age > max_age:
         ok = False
-        notes.append(f"    TOO OLD: {age}s exceeds the {max_age}s hard limit — PythTooOld (6007).")
+        notes.append(f"    TOO OLD: {age}s exceeds the {max_age}s hard limit — PythTooOld (6006).")
     if u.conf_bps() > MAX_CONF_BPS:
         ok = False
-        notes.append(f"    CONFIDENCE TOO WIDE: {u.conf_bps():.0f}bps over {MAX_CONF_BPS} — 6008.")
+        notes.append(f"    CONFIDENCE TOO WIDE: {u.conf_bps():.0f}bps over {MAX_CONF_BPS} — PythConfidenceTooWide (6008).")
     return ok, notes
 
 
