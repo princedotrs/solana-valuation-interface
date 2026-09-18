@@ -121,32 +121,32 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
     x: M, y: 1.62, w: CW, h: 0.32, margin: 0, isTextBox: true,
     fontFace: F, fontSize: 13, bold: true, color: C.violetLt, charSpacing: 2.4,
   });
-  s.addText("Pricing that anyone\ncan recompute.", {
-    x: M, y: 2.08, w: 9.6, h: 2.0, margin: 0, isTextBox: true,
+  s.addText("AAPLx trades all night.\nApple doesn't.", {
+    x: M, y: 2.08, w: 10.4, h: 2.0, margin: 0, isTextBox: true,
     fontFace: F, fontSize: 50, bold: true, color: C.paper, lineSpacing: 54,
   });
   s.addText([
-    { text: "The value of a protocol asset, computed on-chain from accounts anyone can verify and written to an account anyone can read — ", options: { color: "C9C4E4" } },
-    { text: "so nobody has to trust a server doing hidden math.", options: { color: C.paper, bold: true } },
+    { text: "A tokenized stock trades 24/7. The share it represents trades 6.5 hours a day. SVI puts the real value on-chain — ", options: { color: "C9C4E4" } },
+    { text: "in an account anyone can read, that tells you when the market is shut.", options: { color: C.paper, bold: true } },
   ], {
     x: M, y: 4.28, w: 10.2, h: 0.9, margin: 0, isTextBox: true,
     fontFace: F, fontSize: 16.5, lineSpacing: 24,
   });
   s.addShape(pres.ShapeType.line, { x: M, y: 5.5, w: 3.0, h: 0, line: { color: C.violet, width: 2.5 } });
   s.addText([
-    { text: "First feed live on a mainnet fork: Hylo xSOL NAV", options: { bold: true, color: C.paper } },
+    { text: "Two Pyth feeds in, two verifiable quotes out, one transaction  ·  devnet", options: { bold: true, color: C.paper } },
     { text: "\nPrince  ·  SVI  ·  September 2026", options: { color: "9F98C4" } },
   ], {
     x: M, y: 5.72, w: 8, h: 0.8, margin: 0, isTextBox: true, fontFace: F, fontSize: 14, lineSpacing: 21,
   });
   pageNum(s, true);
-  s.addNotes("Public pitch. Lead with the receipt on the next slide, not the thesis. Nothing here asks Hylo for anything; Hylo is the first adapter because its assets are the clearest case, and the adapter reads public bytes.");
+  s.addNotes("Say the title out loud and stop. It does the work. Do not explain the product yet -- the next slide is the problem, and the audience has to feel it before the fix means anything.");
 }
 
 // ================================================================ 02 THE RECEIPT
 {
-  const s = lightSlide("Proof first", "It works. Here is the receipt.");
-  s.addText("10 September 2026. A local fork of Solana mainnet, Hylo's real accounts re-cloned seconds before. One transaction, ~13,000 compute units.", {
+  const s = lightSlide("Adapter #2 · hylo-xsol-nav-v1", "The interface already generalises. Here is the receipt.");
+  s.addText("Before stocks, the same core published a leveraged token's NAV — computed by subtraction from a protocol's vault, nothing like a Pyth feed. 10 Sep 2026, on a fork of Solana mainnet with Hylo's real accounts re-cloned seconds before.", {
     x: M, y: 1.4, w: 11.4, h: 0.4, margin: 0, isTextBox: true, fontFace: F, fontSize: 14, color: C.muted,
   });
   const stats = [
@@ -184,36 +184,84 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
     "An off-chain reader over the same bytes agreed to the last digit",
   ]), { x: M + 7.94, y: 4.74, w: 3.9, h: 1.8, margin: 0, isTextBox: true, fontFace: F, fontSize: 11, color: C.ink, lineSpacing: 14.5, paraSpaceAfter: 4 });
   pageNum(s, false);
-  s.addNotes("This slide replaces every 'it will work' claim in the old deck. Say the word 'fork' out loud: same bytes as mainnet, local validator. Mainnet deployment is the next step and costs about 3.3 SOL.");
+  s.addNotes("Say the word 'fork' out loud: same bytes as mainnet, local validator. The point of this slide is not xSOL -- it is that two adapters this different publish into one account shape consumers read the same way. That is why it is an interface and not an oracle.");
 }
 
 // ================================================================ 03 THE PROBLEM
 {
   const s = darkSlide();
-  s.addText("THE PROBLEM, STATED BY SOMEONE WHO HAS IT", {
+  s.addText("THE HOLE IN EVERY TOKENIZED STOCK", {
     x: M, y: 0.62, w: CW, h: 0.3, margin: 0, isTextBox: true,
     fontFace: F, fontSize: 12, bold: true, color: C.violetLt, charSpacing: 2,
   });
-  s.addText("“", { x: M - 0.06, y: 0.92, w: 1.4, h: 1.6, margin: 0, isTextBox: true,
-    fontFace: F, fontSize: 120, bold: true, color: C.violet });
-  s.addText("honestly an accepted smart contract interface for pricing onchain assets would be amazing — bc pyth wants us to read our own protocol by RPC and give them data by an API — it leaves all sorts of unimaginable security holes", {
-    x: 1.55, y: 1.42, w: 11.1, h: 2.9, margin: 0, isTextBox: true,
-    fontFace: F, fontSize: 27, color: C.paper, lineSpacing: 39 });
-  s.addText("◎ Plish, Hylo founder  ·  public post, 28 August 2026", {
-    x: 1.55, y: 4.36, w: 8, h: 0.34, margin: 0, isTextBox: true, fontFace: F, fontSize: 14, bold: true, color: C.violetLt });
+  s.addText([
+    { text: "For two thirds of every week,\n", options: { color: C.paper } },
+    { text: "the token has a price and\nthe company does not.", options: { color: C.violetLt } },
+  ], {
+    x: M, y: 1.16, w: 11.8, h: 2.5, margin: 0, isTextBox: true,
+    fontFace: F, fontSize: 38, bold: true, lineSpacing: 48 });
+
+  s.addText("Thin overnight books. A rumour. One large seller. The token moves — and no market on earth will arbitrage it back, because the thing it tracks is closed.", {
+    x: M, y: 3.86, w: 11.4, h: 0.8, margin: 0, isTextBox: true,
+    fontFace: F, fontSize: 15, color: "B4ADD4", lineSpacing: 22 });
+
   const bx = [
-    ["Nobody publishes the number.", "xSOL's value is a formula over on-chain state. No oracle carries it; Hylo's site computes it in your browser."],
-    ["The workaround is the hole.", "Read your own protocol by RPC, do the math on a server, hand a number to an API. Five trusted hops; a consumer can check none."],
-    ["It is not hypothetical.", "Four lenders have already lost money to exactly this failure class. The next slide has the bill."],
+    ["Nothing on-chain says so.", "The account holds a number. It carries no signal that the number is a guess made in an empty room."],
+    ["So a lender liquidates against it.", "It cannot tell a price from a guess. By the opening bell the price is back; the liquidation is not."],
+    ["And this is the fastest-growing asset class on Solana.", "Every tokenized equity has the same hole, and every venue that prices one inherits it."],
   ];
   bx.forEach(([h, b], i) => {
     const x = M + i * (3.93 + 0.29);
     card(s, { x, y: 5.02, w: 3.93, h: 1.62, fill: C.deep, line: "3B3266" });
-    s.addText(h, { x: x + 0.24, y: 5.2, w: 3.45, h: 0.34, margin: 0, isTextBox: true, fontFace: F, fontSize: 13.5, bold: true, color: C.paper });
-    s.addText(b, { x: x + 0.24, y: 5.56, w: 3.45, h: 0.92, margin: 0, isTextBox: true, fontFace: F, fontSize: 11.5, color: "B4ADD4", lineSpacing: 15 });
+    s.addText(h, { x: x + 0.24, y: 5.2, w: 3.45, h: 0.5, margin: 0, isTextBox: true, fontFace: F, fontSize: 13.5, bold: true, color: C.paper });
+    s.addText(b, { x: x + 0.24, y: 5.72, w: 3.45, h: 0.8, margin: 0, isTextBox: true, fontFace: F, fontSize: 11.5, color: "B4ADD4", lineSpacing: 15 });
   });
   pageNum(s, true);
-  s.addNotes("A public post, quoted as evidence that the problem is felt by the people who have it. We built the interface he described. We did not need his permission to, and we have not asked for it.");
+  s.addNotes("Do not rush this slide. The whole pitch rests on the audience agreeing that a 3am price on a closed stock is not a price. If they nod here, everything after is mechanics.");
+}
+
+// ================================================================ 03b WHAT GETS PUBLISHED
+{
+  const s = lightSlide("The fix", "Two numbers per stock, written in one transaction");
+  s.addText("Both quotes come out of the same instruction, so the pair can never be half-updated — there is no moment at which a fresh market price sits against a stale fair value.", {
+    x: M, y: 1.4, w: 11.4, h: 0.4, margin: 0, isTextBox: true, fontFace: F, fontSize: 14, color: C.muted });
+
+  const feeds = [
+    ["FAIR VALUE", "stock-aapl-fair-value-v1", "What the real share is worth", "Pyth  Equity.US.AAPL/USD", C.violet],
+    ["MARKET PRICE", "stock-aapl-market-v1", "What the token trades at on Solana", "Pyth  Crypto.AAPLX/USD", C.amber],
+  ];
+  feeds.forEach(([tag, feed, what, src, col], i) => {
+    const x = M + i * (5.9 + 0.29);
+    card(s, { x, y: 2.0, w: 5.9, h: 1.72, fill: C.paper, line: C.line, shadow: true });
+    s.addText(tag, { x: x + 0.28, y: 2.2, w: 5.3, h: 0.28, margin: 0, isTextBox: true, fontFace: F, fontSize: 11.5, bold: true, color: col, charSpacing: 1.8 });
+    s.addText(what, { x: x + 0.28, y: 2.5, w: 5.3, h: 0.36, margin: 0, isTextBox: true, fontFace: F, fontSize: 18, bold: true, color: C.ink });
+    s.addText(feed, { x: x + 0.28, y: 2.92, w: 5.3, h: 0.26, margin: 0, isTextBox: true, fontFace: MONO, fontSize: 11, color: C.muted });
+    s.addText(src, { x: x + 0.28, y: 3.24, w: 5.3, h: 0.26, margin: 0, isTextBox: true, fontFace: MONO, fontSize: 11, color: C.muted });
+  });
+
+  s.addText("The flags are the product", {
+    x: M, y: 3.96, w: 6, h: 0.36, margin: 0, isTextBox: true, fontFace: F, fontSize: 17, bold: true, color: C.ink });
+  s.addText("The value is the easy part. What is worth deploying is an account that says what kind of moment it was taken in.", {
+    x: M, y: 4.32, w: 11.4, h: 0.34, margin: 0, isTextBox: true, fontFace: F, fontSize: 13, color: C.muted });
+
+  const flags = [
+    ["MARKET_CLOSED", "equity price > 15 min old — impossible mid-session, so the exchange is shut", C.amber],
+    ["DEVIATION_HIGH", "the token is more than 2% from the real share", C.amber],
+    ["REFERENCE_STALE", "> 4 days, which no weekend or holiday explains", C.muted],
+    ["8 days → REFUSE", "not a flag. Nothing is published and the last quote expires", C.red],
+  ];
+  const fw = (CW - 3 * 0.26) / 4;
+  flags.forEach(([n, d, col], i) => {
+    const x = M + i * (fw + 0.26);
+    card(s, { x, y: 4.78, w: fw, h: 1.5, fill: C.paper, line: C.line, shadow: true });
+    s.addText(n, { x: x + 0.22, y: 4.98, w: fw - 0.44, h: 0.3, margin: 0, isTextBox: true, fontFace: MONO, fontSize: 11.5, bold: true, color: col });
+    s.addText(d, { x: x + 0.22, y: 5.32, w: fw - 0.44, h: 0.86, margin: 0, isTextBox: true, fontFace: F, fontSize: 11, color: C.ink, lineSpacing: 14.5 });
+  });
+
+  s.addText("Fail stale, never fail wrong. An expired quote stops a consumer; a plausible wrong one does not.", {
+    x: M, y: 6.42, w: 11.4, h: 0.3, margin: 0, isTextBox: true, fontFace: F, fontSize: 12.5, italic: true, color: C.muted });
+  pageNum(s, false);
+  s.addNotes("MARKET_CLOSED is not an error and saying so is the point. An equity feed is SUPPOSED to be hours old overnight. If we refused to publish then, the feed would go dark exactly when a consumer most needs telling.");
 }
 
 // ================================================================ 04 TRUST CHAIN
@@ -437,18 +485,18 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
   const rows = [
     [th("Component"), th("State"), th("What it is")],
     [td("programs/svi-core"), td("DONE", { bold: true, color: C.green }), td("Descriptor + 320-byte quote, layout asserted by test. Accepts a write only from the adapter PDA named in the descriptor. Sequence, validity, bounds enforced.")],
-    [td("crates/svi-abi"), td("DONE", { bold: true, color: C.green }), td("The 96-byte wire format between adapter and core. Zero dependencies, so programs on incompatible framework versions share it safely. Checked from both sides.")],
-    [td("programs/svi-hylo-adapter"), td("DONE", { bold: true, color: C.green }), td("Verifies accounts, links hylo-core at a pinned commit, publishes redeem/mint NAV with flags. 17 tests, including a live end-to-end run on a mainnet fork.")],
-    [td("First on-chain publication"), td("PROVEN", { bold: true, color: C.green }), td("10 Sep 2026: $0.060285498, band 4.9 bps, exact match with an independent off-chain recomputation. Recorded in docs/validation.")],
-    [td("tools/svi-keeper"), td("DONE", { bold: true, color: C.green }), td("Permissionless crank with decoded refusal codes, plus a watcher for the quote and for the Pyth input.")],
-    [td("hylo-xsol-nav-v1 spec"), td("DRAFT", { bold: true, color: C.amber }), td("Complete except the five open questions in §10. Frozen and hashed before mainnet.")],
-    [td("Mainnet · observer · mirror · audit"), td("NEXT", { color: C.muted }), td("Mainnet deploy ≈ 3.3 SOL; keeper ≈ 0.1 SOL/day. Observer and mirror after. No real collateral against these feeds until a third-party audit.")],
+    [td("programs/svi-stock-adapter"), td("DONE", { bold: true, color: C.green }), td("Two Pyth feeds in, two quotes out, one instruction. Verifies owner, feed id, verification level, publish time, age and confidence, and refuses on each. 19 tests.")],
+    [td("programs/svi-hylo-adapter"), td("DONE", { bold: true, color: C.green }), td("Adapter #2: xSOL NAV computed by subtraction from Hylo's vault, hylo-core pinned to a commit. 17 tests, including a live run on a mainnet fork.")],
+    [td("tools/svi-keeper"), td("DONE", { bold: true, color: C.green }), td("Permissionless crank for both feeds, with decoded refusal codes. Posts its own Pyth updates from Hermes where a feed is not sponsored. 22 tests.")],
+    [td("tools/stock-check + dashboard"), td("DONE", { bold: true, color: C.green }), td("An independent verifier sharing no code with the adapter, and a page that reads the accounts from the browser with no backend and no last-known value.")],
+    [td("Devnet deploy · MARKET_CLOSED observed"), td("NEXT", { bold: true, color: C.amber }), td("Runbook and address planner written and tested: four commands on a machine with a wallet. Turning the flag into a screenshot needs a keeper run across a real 16:00 ET close.")],
+    [td("Sample lender · observer · audit"), td("NEXT", { color: C.muted }), td("No consumer reads the feed yet, which is the honest gap. No real collateral against these feeds until a third-party audit.")],
   ];
   table(s, rows, { x: M, y: 1.44, w: CW, colW: [3.0, 1.35, 7.743], fontSize: 11, rowH: 0.62 });
   card(s, { x: M, y: 6.5, w: CW, h: 0.6, fill: C.violet, line: C.violet });
   s.addText([
     { text: "The critical path is no longer engineering.  ", options: { color: C.paper, bold: true } },
-    { text: "It is a frozen spec, a mainnet deployment, and a first consumer.", options: { color: "E4DDFB" } },
+    { text: "It is a deployment, one observed market close, and a first consumer.", options: { color: "E4DDFB" } },
   ], { x: M + 0.34, y: 6.64, w: CW - 0.68, h: 0.36, margin: 0, isTextBox: true, fontFace: F, fontSize: 15 });
   pageNum(s, false);
 }
