@@ -1,12 +1,21 @@
 # SVI — Product Documentation
 
-**Solana Valuation Interface** · prepared for the Hylo partnership proposal
-September 2026
+**Solana Valuation Interface** · September 2026
 
-> **The one-sentence version:** the value of a protocol asset is computed by a
-> program on-chain, from accounts anyone can verify, and written to a public
-> account anyone can read — so nobody ever has to trust an off-chain API doing
-> hidden math.
+> **What it is:** a tokenized stock trades on Solana 24/7 while the share it
+> represents trades 6.5 hours a day, so the on-chain price drifts from the
+> company's real value every night and every weekend. SVI publishes both
+> numbers on-chain as verifiable accounts, flagged for when the exchange is
+> shut and when the token has drifted. No API to trust; anyone can re-run the
+> math.
+
+> **A note on the older documents here.** 01 through 06 were written for a
+> partnership proposal to Hylo, whose xSOL feed is SVI's second adapter. Their
+> technical content still holds — the core, the quote layout, the write path
+> and the design rules are unchanged — but they frame SVI around
+> protocol-derived NAV rather than tokenized stocks. Where the two disagree
+> about *what SVI is for*, [00](00-stocklana-overview.md) is current and they
+> are history.
 
 ---
 
@@ -14,6 +23,7 @@ September 2026
 
 | # | Document | What it answers | Read time |
 |---|---|---|---|
+| **00** | [**Stocklana overview**](00-stocklana-overview.md) | **Start here.** The problem, what gets published, the flags, and what exists | 8 min |
 | — | [**One pager**](07-one-pager.md) | Everything, compressed to a page. The leave-behind | 2 min |
 | 01 | [**Market analysis**](01-market-analysis.md) | Is this worth building? Who else is doing it? What kills it? | 15 min |
 | 02 | [**Product overview**](02-product-overview.md) | What is SVI, in plain language, with one running example | 10 min |
