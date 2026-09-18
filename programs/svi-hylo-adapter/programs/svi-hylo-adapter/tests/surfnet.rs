@@ -300,6 +300,29 @@ impl Quote {
     }
 }
 
+/// The id a program will actually be deployed at, taken from the keypair
+/// `anchor` deploys with rather than from a constant beside it.
+///
+/// `anchor keys sync` rewrites `declare_id!` from `target/deploy/<name>-keypair.json`
+/// and `anchor build` bakes that into the binary. A constant here does not
+/// move with it, so syncing keys in one workspace -- which is an ordinary thing
+/// to do while working on a different adapter -- leaves this test deploying a
+/// binary that declares one id at an address that is another, and every
+/// instruction then fails with DeclaredProgramIdMismatch (4100). The failure
+/// names neither id, so it reads like a code fault rather than a stale
+/// constant.
+///
+/// Reading the keypair makes the deploy address follow whatever the last sync
+/// decided, which is the only value that can be correct. The constant remains
+/// as the fallback for a checkout that has never been built.
+fn program_id(rel_keypair: &str, fallback: &str) -> (Pubkey, String) {
+    let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), rel_keypair].iter().collect();
+    match read_keypair_file(&path) {
+        Ok(kp) => (kp.pubkey(), format!("{} (from {})", kp.pubkey(), rel_keypair.rsplit('/').next().unwrap_or(rel_keypair))),
+        Err(_) => (pk(fallback), format!("{fallback} (constant; no keypair at {rel_keypair})")),
+    }
+}
+
 fn read_so(rel: &str) -> Result<Vec<u8>> {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), rel].iter().collect();
     std::fs::read(&path).with_context(|| {
@@ -323,8 +346,12 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
     }
     println!("\nsurfnet   {}\nmainnet   {}", redact(&url), redact(&mainnet));
 
-    let svi_core = pk(SVI_CORE_ID);
-    let adapter = pk(ADAPTER_ID);
+    let (svi_core, core_src) = program_id(
+        "../../../svi-core/target/deploy/svi_core-keypair.json", SVI_CORE_ID);
+    let (adapter, adapter_src) = program_id(
+        "../../target/deploy/svi_hylo_adapter-keypair.json", ADAPTER_ID);
+    println!("  svi-core               {core_src}");
+    println!("  adapter                {adapter_src}");
     let payer = read_keypair_file(&kp_path).map_err(|e| anyhow!("keypair {kp_path}: {e}"))?;
     if rpc.get_balance(&payer.pubkey()).await? < 1_000_000_000 {
         let sig = rpc.request_airdrop(&payer.pubkey(), 10_000_000_000).await?;
