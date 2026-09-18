@@ -133,8 +133,18 @@ def fetch_account(url: str, address: str) -> bytes | None:
 
 
 def describe(url: str, label: str, address: str, want_feed_id: str,
-             max_age: int, now: int) -> tuple[bool, list[str]]:
-    """Report on one feed. Returns (usable, notes)."""
+             max_age: int, now: int) -> tuple[str, list[str]]:
+    """Report on one feed.
+
+    Returns one of "ok", "stale", "missing", "wrong" or "unreachable", because
+    they call for different responses and an earlier version of this collapsed
+    them into a bool. A feed that is absent is not sponsored on this cluster. A
+    feed that is present, correctly identified, fully verified and merely too
+    old is sponsored and working -- it is just not being pushed right now, which
+    is what every account on a forked validator looks like. Treating the second
+    as the first argues for accepting partially verified prices on a cluster
+    where nothing is wrong with the fully verified ones.
+    """
     notes: list[str] = []
     try:
         got = fetch_account(url, address)
@@ -143,10 +153,10 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
         hint = diagnose(exc)
         if hint:
             notes += ["    " + ln for ln in hint.splitlines()]
-        return False, notes
+        return "unreachable", notes
 
     if got is None:
-        return False, [
+        return "missing", [
             f"{label}: NO ACCOUNT at {address}",
             f"    Pyth does not sponsor this feed on this cluster.",
             f"    The keeper must post its own updates (--post-updates), and this",
@@ -155,7 +165,7 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
 
     raw, owner = got
     if owner != PYTH_RECEIVER:
-        return False, [
+        return "wrong", [
             f"{label}: account exists but is owned by {owner},",
             f"    not the Pyth receiver ({PYTH_RECEIVER}).",
             f"    The adapter would abort with PythWrongOwner (6000).",
@@ -164,10 +174,10 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
     try:
         u = PriceUpdate(raw)
     except ValueError as exc:
-        return False, [f"{label}: account does not decode as a price update: {exc}"]
+        return "wrong", [f"{label}: account does not decode as a price update: {exc}"]
 
     age = now - u.publish_time
-    ok = True
+    status = "ok"
 
     notes.append(
         f"{label}: ${u.usd():,.4f}  +/-{u.conf_bps():.1f}bps  "
@@ -175,18 +185,18 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
     )
 
     if u.feed_id != want_feed_id:
-        ok = False
+        status = "wrong"
         notes.append(f"    WRONG FEED: account holds {u.feed_id[:16]}…, expected {want_feed_id[:16]}…")
         notes.append(f"    The adapter would abort with PythFeedMismatch (6003).")
     if not u.full:
         notes.append(f"    Partial verification: this symbol needs min_verification_level = 0.")
     if age > max_age:
-        ok = False
+        status = "wrong" if status == "wrong" else "stale"
         notes.append(f"    TOO OLD: {age}s exceeds the {max_age}s hard limit — PythTooOld (6006).")
     if u.conf_bps() > MAX_CONF_BPS:
-        ok = False
+        status = "wrong"
         notes.append(f"    CONFIDENCE TOO WIDE: {u.conf_bps():.0f}bps over {MAX_CONF_BPS} — PythConfidenceTooWide (6008).")
-    return ok, notes
+    return status, notes
 
 
 def load_symbols(path: Path) -> list[dict]:
@@ -292,31 +302,64 @@ def main() -> int:
         print(f"could not read the chain clock ({exc}); falling back to local time\n")
         now = int(datetime.now(timezone.utc).timestamp())
 
-    sponsored, needs_posting = [], []
+    usable, stale, missing = [], [], []
     for s in symbols:
         print(f"{s['symbol']}")
         eq_addr = s["equity_addr"] or pda(PYTH_PUSH_ORACLE,
                                           [args.shard.to_bytes(2, "little"), bytes.fromhex(s["equity"])])
         tk_addr = s["token_addr"] or pda(PYTH_PUSH_ORACLE,
                                          [args.shard.to_bytes(2, "little"), bytes.fromhex(s["token"])])
-        eq_ok, eq_notes = describe(args.rpc, "  equity", eq_addr, s["equity"], REFERENCE_MAX_AGE_SECS, now)
-        tk_ok, tk_notes = describe(args.rpc, "  token ", tk_addr, s["token"], TOKEN_MAX_AGE_SECS, now)
+        eq, eq_notes = describe(args.rpc, "  equity", eq_addr, s["equity"], REFERENCE_MAX_AGE_SECS, now)
+        tk, tk_notes = describe(args.rpc, "  token ", tk_addr, s["token"], TOKEN_MAX_AGE_SECS, now)
         for n in eq_notes + tk_notes:
             print(n)
         print()
-        (sponsored if (eq_ok and tk_ok) else needs_posting).append(s["symbol"])
+
+        worst = {"missing": 3, "wrong": 3, "unreachable": 3, "stale": 2, "ok": 1}
+        rank = max(worst[eq], worst[tk])
+        if rank == 1:
+            usable.append(s["symbol"])
+        elif rank == 2:
+            stale.append(s["symbol"])
+        else:
+            missing.append(s["symbol"])
 
     print("-" * 64)
-    if sponsored:
-        print(f"READ DIRECTLY ({len(sponsored)}): {', '.join(sponsored)}")
-        print("  Both feeds are live and usable. Crank with:")
+    if usable:
+        print(f"USABLE NOW ({len(usable)}): {', '.join(usable)}")
+        print("  Both feeds are fresh, correctly identified and fully verified.")
+        print("  Keep min_verification_level = 1 and crank normally:")
         print("    svi-keeper crank --feed stock:<SYM>")
-        print("  Keep min_verification_level = 1 unless a note above says otherwise.")
-    if needs_posting:
-        print(f"NEEDS --post-updates ({len(needs_posting)}): {', '.join(needs_posting)}")
-        print("  Set min_verification_level = 0 for these AT INITIALIZE TIME, then:")
+        print()
+
+    if stale:
+        print(f"SPONSORED BUT STALE ({len(stale)}): {', '.join(stale)}")
+        print("  The accounts exist, hold the right feed, and are fully verified.")
+        print("  Nothing is wrong with them -- they are simply not being pushed.")
+        print()
+        print("  On a forked validator this is expected and says nothing about the")
+        print("  real cluster: the fork snapshots accounts and no publisher updates")
+        print("  them afterwards, so they age from the moment it starts. Restart the")
+        print("  fork for fresh ones, and note the token leg's limit is 30 minutes.")
+        print()
+        print("  On a live cluster it means the feed has genuinely stopped updating,")
+        print("  and you need a price of your own:")
         print("    svi-keeper crank --feed stock:<SYM> --post-updates")
-    return 0 if sponsored else 2
+        print("  That uses post_update_atomic, which verifies a subset of guardian")
+        print("  signatures and therefore yields PARTIAL verification, so those")
+        print("  symbols need min_verification_level = 0. That is a real reduction in")
+        print("  security -- take it because the feed stopped, not because a fork")
+        print("  froze it. Pyth's two-step post_update verifies the whole VAA and")
+        print("  stays Full, at the cost of an extra transaction and account.")
+        print()
+
+    if missing:
+        print(f"UNUSABLE ({len(missing)}): {', '.join(missing)}")
+        print("  Absent, wrongly owned, misidentified or unreadable -- see above.")
+        print("  An absent account means Pyth does not sponsor that feed here.")
+        print()
+
+    return 0 if usable and not (stale or missing) else 2
 
 
 if __name__ == "__main__":
