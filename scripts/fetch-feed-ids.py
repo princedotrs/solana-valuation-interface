@@ -85,6 +85,15 @@ def index_by_symbol(payload: object) -> dict[str, str]:
     return out
 
 
+# Hermes sits behind a CDN that rejects the default urllib agent
+# ("Python-urllib/3.12") with a bare 403. The request is ordinary and the rate
+# is one call per symbol; identifying the tool honestly is enough to be served.
+HTTP_HEADERS = {
+    "Accept": "application/json",
+    "User-Agent": "svi-fetch-feed-ids/1.0 (+https://github.com/princedotrs/solana-valuation-interface)",
+}
+
+
 # Set by --from-file: a Hermes response captured elsewhere. The filtering and
 # pairing below are unchanged, so a file and a live fetch reach the same result.
 FROM_FILE: object | None = None
@@ -97,7 +106,7 @@ def fetch(query: str, asset_type: str | None) -> tuple[object, str]:
     url = f"{HERMES}{FEEDS_PATH}?{urllib.parse.urlencode(params)}"
     if FROM_FILE is not None:
         return FROM_FILE, f"{url}  (served from a local file)"
-    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    req = urllib.request.Request(url, headers=HTTP_HEADERS)
     with urllib.request.urlopen(req, timeout=30, context=tls_context()) as resp:
         return json.loads(resp.read().decode()), url
 

@@ -58,6 +58,15 @@ def diagnose(exc: BaseException) -> str | None:
             '  if it is not there:       python3 scripts/netutil.py --link-certifi\n'
             "Then re-run. To proceed without network access at all, see --from-file."
         )
+    if "403" in text and not ("Tunnel" in text or "proxy" in text.lower()):
+        return (
+            "The server answered 403, so the connection worked and the request was\n"
+            "refused. A CDN rejecting the default urllib agent is the usual cause,\n"
+            "and no other ticker will behave differently. Fetch it with curl and\n"
+            "feed the result in:\n"
+            "  curl -s 'https://hermes.pyth.network/v2/price_feeds?query=AAPL' > aapl.json\n"
+            "  python3 scripts/fetch-feed-ids.py --from-file aapl.json AAPL"
+        )
     if "403" in text and ("Tunnel" in text or "proxy" in text.lower()):
         return (
             "An HTTPS proxy refused to connect to Hermes (403 on CONNECT), so this\n"
