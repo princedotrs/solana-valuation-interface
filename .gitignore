@@ -9,3 +9,6 @@ __pycache__/
 
 # Copied into site/ at deploy time by netlify.toml; the root file is the source.
 site/deployments.json
+
+# Working notes and raw chat transcripts. Not part of the project.
+docs/context/

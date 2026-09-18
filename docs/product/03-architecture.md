@@ -9,6 +9,14 @@
 
 ---
 
+> **Scope note.** The core, the quote account, the write path, the failure
+> states and the design rationale below are unchanged and apply to every
+> adapter. The worked example is Hylo's xSOL. For the tokenized-stock adapter
+> — two Pyth feeds in, two quotes out, in one instruction — see
+> [00-stocklana-overview.md](00-stocklana-overview.md) and the root
+> [README](../../README.md).
+
+
 ## 1. System context
 
 Gray = already exists, SVI touches nothing. Purple = SVI builds and deploys.
