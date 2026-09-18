@@ -1,201 +1,278 @@
-# The pitch video — plan, script, and shot list
+# The videos — plan, scripts, and shot list
 
-One recording session yields two cuts:
+Two cuts from one recording session:
 
 | Cut | Length | Where | What it has to do |
 |---|---|---|---|
-| **Short** | 75–90 s | Twitter/X, the top of the thread | Make one person who prices collateral for a living stop scrolling |
-| **Full** | 3½–4 min | Colosseum submission, Superteam grant, DMs to lenders | Show the whole mechanism working and be honest about what is not done |
+| **Pitch** | 3 min | Colosseum / Stocklana submission, Twitter | Make someone who prices collateral for a living stop scrolling |
+| **Technical** | 5 min | The submission's second link, DMs to protocol teams | Show the mechanism working and be honest about what is not done |
 
-Everything on screen is real: the keeper, the watcher, the test output, the
-page. No mock-ups, no "coming soon" slides in the demo section.
+Everything on screen is real: the keeper, the watcher, the dashboard, the test
+output. No mock-ups, no "coming soon" slides inside the demo.
+
+---
 
 ## The one claim
 
-> **Nobody publishes this number. Now it is on-chain, computed by code anyone
-> can run, in an account anyone can read, with bounds and a staleness horizon.**
+> **A tokenized stock trades all night. The company doesn't. SVI puts the real
+> value on-chain, in an account anyone can read, that tells you when the
+> market is shut.**
 
 Say it at the start, prove it in the middle, repeat it at the end.
 
-Two things never to say, because they are false and the replies will find it:
+### Three things never to say
 
-- *"Fresher than Pyth."* Pyth publishes SOL/USD, the **input**. xSOL NAV is
-  computed from it, so our quote is always ≤ 10 s behind Pyth by Hylo's own
-  rule. What we publish is the **output**, which no oracle carries.
-- *"Live on mainnet"* — until it is. Until then, say "a fork of mainnet state,
-  same bytes, local validator", and say it early. The deploy is ~3.3 SOL away.
+- **"Fresher than Pyth."** Pyth publishes the input; SVI publishes the output.
+  A quote can never be fresher than the price it came from. Saying otherwise
+  will get corrected in the replies, and deservedly.
+- **"Live on mainnet"** — until it is. Say "devnet", plainly, every time.
+- **"Audited"**, or anything that implies it. It is not.
 
-## Screen setup
+### The one thing to say that nobody else will
 
-Three terminal panes in one window (tmux or iTerm split), dark theme, font
-18–20 pt so it reads on a phone. Record at 1080p or 1440p, 60 fps — the
-watcher redraws every second and the tick is part of the point.
+*The failure mode we designed for is being wrong, not being late.* Most of the
+code is refusals. That is the whole pitch to anyone who has been liquidated by
+a bad oracle print.
 
-```
-┌────────────────────────────┬────────────────────────────┐
-│ [1] svi-keeper watch       │ [2] svi-keeper watch --pyth│
-│     our quote, 1 s redraw  │     the input, its own age │
-├────────────────────────────┴────────────────────────────┤
-│ [3] svi-keeper crank --interval 5 --surfnet             │
-│     one line per publish, refusals decoded              │
-└─────────────────────────────────────────────────────────┘
-```
+---
 
-Commands, in order, before you press record:
+## Recording checklist
 
-```bash
-# fresh fork — do not reuse an old one
-surfpool start
+Before you hit record, have all of this already running:
 
-# in the repo
-export SVI_MAINNET_RPC='<your helius url>'     # the tools never print it
-K=tools/svi-keeper/target/debug/svi-keeper
-$K crank --interval 5 --surfnet                # pane 3, first: deploys nothing,
-                                               # so run the test once beforehand
-                                               # if the programs are not there
-$K watch                                       # pane 1
-$K watch --pyth                                # pane 2
-```
+- [ ] Devnet deployed, `deployments.json` written, at least one crank landed
+- [ ] Terminal 1: `svi-keeper crank --feed stock:AAPL --interval 15`
+- [ ] Terminal 2: `svi-keeper watch --feed stock:AAPL`
+- [ ] Terminal 3: clear, for `stock-check`
+- [ ] Browser tab 1: the dashboard, already loaded
+- [ ] Browser tab 2: Solana Explorer on the fair-value quote account
+- [ ] Font size up. A 1080p recording of an 11px terminal is unreadable on a phone.
+- [ ] **Record during or just after a US market close if you possibly can.**
+      `MARKET_CLOSED` appearing live is worth more than any explanation of it.
 
-If `crank` says a program is not deployed, run
-`cargo test --test surfnet -- --nocapture` once in `programs/svi-hylo-adapter`
-— it deploys both programs and makes the first publication. Let the keeper run
-for a minute before recording so `sequence` is past 1 and the log has a few
-lines.
+If you cannot record across a real close, say so on screen — "this flag was
+captured at 16:15 ET on the 18th" over the validation record — rather than
+implying it is happening live.
 
-B-roll to capture separately, each 10–15 s, cursor hidden:
+---
 
-1. `docs/product/08-how-svi-values-xsol.html` — slow scroll from the title
-   through the dependency-chain figure and the full architecture figure.
-2. The test run: `cargo test --test surfnet -- --nocapture`, from
-   `deployed …` to `MATCH`. This is the receipt; record it clean.
-3. Deck slides 2 (receipt), 4 (trust chain), 11 (fail stale) as stills.
-4. Plish's post, as a screenshot with the date visible.
+# Cut 1 — the pitch (3 minutes)
 
-## Full cut — script with timings
+### 0:00–0:20 · The hook
 
-Read it as one person explaining something they built, not as a voiceover.
-Short sentences. Pause on the numbers.
-
-**0:00 – 0:15 · Cold open** — *pane 1 full-screen, the watcher ticking*
-
-> This is the value of one xSOL, right now, on-chain.
-> It's $0.0603. Bounds 4.9 basis points wide. Seven slots old.
-> Until this week, this number did not exist anywhere on Solana.
-
-**0:15 – 0:45 · The problem** — *Plish's post, then slide 4*
-
-> xSOL is Hylo's leveraged SOL token. Its value isn't a market price —
-> it's a formula over Hylo's own books. Nobody publishes the result.
-> Hylo's website computes it in your browser.
+> *[screen: a tokenized stock's chart, overnight]*
 >
-> So when Pyth wanted an xSOL feed, they asked Hylo to read their own
-> protocol over RPC, do the math on a server, and hand a number to an API.
-> Hylo's founder called that "unimaginable security holes". He's right —
-> that's five trusted hops, and a lender can check none of them.
-> Four lenders have already lost money to exactly this failure class.
-
-**0:45 – 1:15 · What the number is** — *page section "What xSOL is", the subtraction*
-
-> Here's the formula. Hylo holds about 120,000 SOL. At $212, that's
-> $25 million. It owes $15 million to hyUSD holders. What's left — $10
-> million — belongs to 166 million xSOL. Ten million divided by 166 million
-> is six cents.
+> This is AAPLx. A tokenized Apple share, trading on Solana at three in the
+> morning.
 >
-> Two inputs: the SOL price, from Pyth, and Hylo's books, from Hylo's
-> accounts. Both public. So the output can be computed on-chain, by a
-> program, from bytes anyone can verify. That's what SVI does.
-
-**1:15 – 2:15 · The demo** — *three panes*
-
-> Bottom pane is the keeper. Every five seconds it sends one transaction.
-> Anyone can run this — it holds no key that matters. It pays the fee, and
-> that's all it can do.
+> Apple is closed. It has been closed for eleven hours. There is no market
+> anywhere that will arbitrage this price back to anything real, because the
+> thing it tracks is shut.
 >
-> The adapter reads Hylo's state, the xSOL mint, and Pyth SOL/USD. It checks
-> every account is the genuine one. It runs Hylo's own math library — the
-> same code Hylo's program uses, pinned to one commit — and it publishes.
+> And nothing on-chain says so.
+
+### 0:20–0:50 · The consequence
+
+> *[screen: a lending position, then a liquidation]*
 >
-> Top left: the result. Value, bounds, the slot it was observed at, when it
-> expires, and flags. `BUY_ZONE` means Hylo's collateral ratio is in a
-> rebalance zone right now. The adapter says so instead of hiding it.
+> A lending market reads that price. It doesn't know the difference between a
+> price and a guess made in an empty room — it just sees a number. So it
+> liquidates someone against it.
 >
-> Top right: the input. Pyth's SOL/USD, with its own age. Watch SOL move —
-> *(pause for a tick)* — and xSOL moves about two and a half times as much.
-> That's the leverage, live.
+> By nine-thirty, when Apple opens, the price is back. The liquidation isn't.
 >
-> Now watch what happens when I stop the keeper. *(Ctrl-C pane 3.)*
-> The quote doesn't change. It ages. In five minutes it says STALE — do not
-> use. It never guesses. The rule is: fail stale, never fail wrong.
-> *(Restart the keeper.)*
+> Tokenized equities are the fastest growing thing on Solana right now. Every
+> one of them has this hole in it.
 
-**2:15 – 2:45 · The receipt** — *B-roll 2, the test output*
+### 0:50–1:40 · The fix
 
-> This is the test that proves it. It deploys both programs, re-clones
-> Hylo's accounts from mainnet, publishes, reads the quote back by byte
-> offset the way a lender would, and then recomputes the value off-chain
-> with Hylo's library over the same bytes.
+> *[screen: the dashboard, live]*
 >
-> On-chain: 0.060285498. Off-chain: 0.060285498. To the last digit.
-
-**2:45 – 3:15 · How a lender uses it** — *page section "What a reader does with it"*
-
-> The integration is one account read, about two hundred compute units.
-> Four fields matter: is it still valid, are the flags clear, what's the
-> lower bound. A hundred thousand xSOL deposited is six thousand dollars of
-> collateral at the lower bound. When the quote expires, the market refuses
-> new borrows. It never has to decide whether a stale number is probably
-> fine.
-
-**3:15 – 3:40 · What's not done** — *slide 13*
-
-> Three honest caveats. This ran on a fork of mainnet — same bytes, local
-> validator; mainnet deployment is next and costs about three SOL. It
-> depends on Pyth for the SOL price and always will; our quote can't be
-> fresher than its input. And it's not audited, so no market should
-> underwrite against it yet. That's what the grant is for.
-
-**3:40 – 4:00 · Ask and close** — *slide 17, then the repo*
-
-> If you price collateral: read one account. If you're Superteam: an audit,
-> a mainnet deployment, and three months of keepers. If you're Hylo: fifteen
-> minutes reading the spec and telling me if I misread your math — the
-> adapter runs either way.
+> This is SVI. For each stock it publishes two numbers on-chain, written in
+> the same transaction.
 >
-> Everything is in the repo: programs, tests, keeper, the validation record
-> with the transaction signature. Fail stale, never fail wrong.
+> *[point]* What the real share is worth. *[point]* What the token is actually
+> trading at. And the gap between them.
+>
+> Both come from Pyth — the equity feed and the crypto feed, read together in
+> one instruction, so the drift is measured at a single instant.
+>
+> *[point at the flags]* And this is the part that matters. `MARKET_CLOSED`.
+> The account is telling you the exchange is shut. Not an error — an equity
+> price is *supposed* to be hours old overnight. It's information. Widen your
+> margin, or don't take the position.
+>
+> *[point]* `DEVIATION_HIGH`. The token is more than two percent from the real
+> share. That's a dislocation, on-chain, that anyone can read.
 
-## Short cut — 75–90 s
+### 1:40–2:20 · Why you can believe it
 
-Cold open (0:00–0:15) → the formula in one breath (15 s) → the demo with the
-STALE beat (35 s) → the receipt line "on-chain 0.060285498, off-chain
-0.060285498" (10 s) → one caveat: "on a fork; mainnet next; not audited" (7 s)
-→ repo (5 s). Captions burned in; most people watch muted.
+> *[screen: terminal, `stock-check AAPL`]*
+>
+> There's no API here. The math runs in a Solana program, the inputs are Pyth
+> accounts, the output is an account you read directly — about two hundred
+> compute units, no CPI.
+>
+> And you don't have to take my word for any of it. This tool re-reads the
+> published accounts, asks Pyth independently, and recomputes everything.
+>
+> *[output lands]*
+>
+> It shares no code with the adapter. Written separately, on purpose. Two
+> implementations agreeing is evidence. One agreeing with itself isn't.
 
-## Thread copy (post with the short cut)
+### 2:20–2:45 · It generalises
 
-1. The value of one xSOL, computed on-chain, in a public account. Bounds,
-   staleness, flags. Nobody published this number before. Here's it ticking. 🧵
-2. xSOL is a formula, not a price: (Hylo's SOL × SOL/USD − hyUSD debt) ÷
-   supply. Pyth has the input. Nobody had the output. SVI computes it on-chain
-   with Hylo's own math library and writes 320 bytes anyone can read.
-3. The receipt: on-chain $0.060285498, independent off-chain recomputation
-   $0.060285498. Same to the last digit. Tx sig + validation record in the
-   repo.
-4. Anyone can run the keeper. It can't influence the value — only the
-   adapter's own PDA can write, after every check passes. Stop cranking and
-   the quote goes STALE, visibly. It never guesses. Fail stale, never fail
-   wrong.
-5. Honest bits: this is a mainnet *fork* (same bytes, local validator);
-   mainnet is ~3 SOL away. Depends on Pyth for SOL/USD, always will. Not
-   audited — no real collateral until it is. Repo + spec:
-   github.com/princedotrs/solana-valuation-interface
+> *[screen: the Hylo section of the site]*
+>
+> Before stocks, the same core published the NAV of a leveraged token —
+> computed by subtraction from a protocol's vault, nothing like a Pyth feed.
+> Same account shape, same write path, same rules. Only the adapter changed.
+>
+> That's why it's an interface and not an oracle. An oracle gives you a
+> number. An interface gives every kind of value a common way to be published,
+> checked, and refused.
 
-## Checklist before publishing
+### 2:45–3:00 · The close
 
-- [ ] No RPC URL visible in any frame (the tools redact; check your shell prompt and `env`)
-- [ ] The word "fork" said before minute one
-- [ ] The phrase "fresher than Pyth" appears nowhere
-- [ ] Sequence number > 1 in the opening shot
-- [ ] Captions on the short cut
-- [ ] Helius key rotated (it has been in a chat transcript)
+> On devnet today. Unaudited, and the repo says so on every page. The adapter,
+> the keeper, the verifier and the dashboard are all there, all tested.
+>
+> If you price collateral against a tokenized stock, this is the number you
+> should be reading at three in the morning.
+
+---
+
+# Cut 2 — the technical walkthrough (5 minutes)
+
+### 0:00–0:30 · What you're about to see
+
+> Four things: the adapter refusing, the two feeds landing in one transaction,
+> the flags appearing, and an independent tool agreeing.
+>
+> Everything is devnet. Nothing is mocked.
+
+### 0:30–1:30 · The refusals
+
+> *[screen: `programs/svi-stock-adapter/src/pyth.rs`]*
+>
+> Most of this program is refusals, and that's deliberate.
+>
+> *[scroll]* The account has to be owned by the Pyth receiver. It has to
+> deserialize. Its verification level has to meet the minimum this symbol's
+> config demands. Its feed id has to equal the one in the config — *[pause]*
+> that's the important one. A keeper picks which accounts go into a
+> transaction. Without this check, anyone could pass a real, fully-verified
+> Pyth price for a different, cheaper asset and have it published as Apple's.
+>
+> Then: publish time positive, not from the future, not older than the hard
+> limit, converts to a positive value, confidence not wider than five percent.
+>
+> Any one of those fails and the transaction reverts. Nothing gets published,
+> and the previous quote just expires. *Fail stale, never fail wrong.*
+
+### 1:30–2:30 · Two windows per feed
+
+> *[screen: `state.rs`, the staleness fields]*
+>
+> Here's the design decision the whole thing turns on.
+>
+> "Too old to use" and "old enough to mention" are different questions. If I'd
+> collapsed them, the product would be impossible — an equity feed is supposed
+> to be hours old overnight, so refusing to publish when the reference is
+> stale would take the feed dark at exactly the moment you most need to be
+> told the market is shut.
+>
+> So there are three thresholds. Fifteen minutes raises `MARKET_CLOSED` — a
+> gap that long during a session would itself be a fault, and a quarter hour
+> after the bell is exactly when you want to start saying it. Four days adds
+> `REFERENCE_STALE`, above any long weekend. Eight days refuses outright.
+>
+> All three are in the symbol's on-chain config. A third party can read the
+> rules that produced a quote instead of trusting my description of them.
+
+### 2:30–3:30 · One transaction, two quotes
+
+> *[screen: terminal 1, the keeper cranking; terminal 2, the watcher]*
+>
+> The keeper is permissionless. It holds no privileged key — `svi-core`
+> accepts the write only because the adapter program's own PDA signed the CPI.
+> Anyone can run this and nobody running it can change the number.
+>
+> *[a crank lands]*
+>
+> Both quotes, same instruction, same `observed_slot`. The pair can never be
+> half-updated — there's no moment where a fresh market price sits against a
+> stale fair value, because there's no moment where one exists without the
+> other.
+>
+> *[screen: Explorer on the quote account]*
+>
+> And there it is on-chain. Three hundred and twenty bytes, frozen layout,
+> asserted by a test in `svi-core`. Anyone reads it with four lines and about
+> two hundred compute units.
+
+### 3:30–4:15 · Bringing our own prices
+
+> *[screen: `--post-updates` running]*
+>
+> One honest complication. Pyth sponsors price accounts for some feeds — kept
+> fresh, fully verified. Equity feeds on devnet generally aren't sponsored, so
+> there's nothing to read.
+>
+> So the keeper can bring the price itself: fetch a signed update from Hermes,
+> post it, refresh against it. But posting in a single transaction only checks
+> a subset of guardian signatures, which gives you a *partial* verification
+> instead of a full one.
+>
+> That's a real weakening and I didn't want to hide it. So it's a per-symbol
+> field in the on-chain config. A feed running at the weaker level is visibly
+> running at the weaker level — not described as safe in a keeper config
+> nobody else can see.
+
+### 4:15–4:50 · The second opinion
+
+> *[screen: terminal 3, `stock-check AAPL`]*
+>
+> This depends on none of SVI's crates. The scaling arithmetic is written out
+> again from Pyth's exponent convention, and its tests pin sixteen vectors
+> against `svi-math`, which is the code the adapter actually runs.
+>
+> It reads the accounts, asks Hermes independently, and complains if a quote
+> is outside its own bounds, mistyped, or if the pair wasn't written at the
+> same slot.
+
+### 4:50–5:00 · What isn't done
+
+> Devnet, not mainnet. Unaudited. `methodology_hash` is still zero because the
+> spec isn't frozen. No lending market is consuming it yet — that's next, and
+> it's the thing that would make this real.
+>
+> All of that is written down in the repo, in the same words.
+
+---
+
+## Shot list
+
+| # | Shot | Source | Note |
+|---|---|---|---|
+| 1 | AAPLx overnight chart | any chart tool, or the dashboard's own drift number | must show a real gap |
+| 2 | Dashboard, live, flags visible | `site/index.html` on devnet | the money shot; get `MARKET_CLOSED` if at all possible |
+| 3 | Keeper cranking | terminal 1 | let two cycles land, don't cut |
+| 4 | Watcher | terminal 2 | shows the quote changing under it |
+| 5 | `stock-check` output | terminal 3 | the verdict block, uncut |
+| 6 | `pyth.rs` refusal list | editor | scroll slowly, the comments carry it |
+| 7 | `state.rs` staleness fields | editor | the three thresholds |
+| 8 | Explorer on the quote account | browser | proves it is a real account |
+| 9 | Hylo validation record | `docs/validation/` | the generalisation claim |
+| 10 | Test suite, green | terminal | one take, no cuts, shows the count |
+
+## Recording notes
+
+- **One take per terminal shot.** A cut in the middle of a crank looks like
+  something was hidden.
+- **Don't speed anything up.** If a transaction takes four seconds, four
+  seconds is the truth about how fast this is.
+- **Show a failure on purpose** in the technical cut if you have time — point
+  the keeper at a wrong price account and let `PythFeedMismatch` come back.
+  The refusals are the pitch; showing one land is stronger than describing it.

@@ -7,6 +7,14 @@ assuming you've read the spec.*
 
 ---
 
+> **Scope note.** This document explains SVI's five pieces using Hylo's xSOL
+> as its running example, because a value computed by subtraction from a
+> protocol vault is the hardest case and makes the design rationale clearest.
+> SVI's first adapter is now the **tokenized-stock** adapter; for what SVI is
+> *for*, read [00-stocklana-overview.md](00-stocklana-overview.md) first. The
+> machinery described below is the same machinery the stock adapter uses.
+
+
 ## The one-sentence version
 
 **The value of a protocol asset is calculated by a program on-chain and

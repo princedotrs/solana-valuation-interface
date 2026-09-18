@@ -1,7 +1,21 @@
 # svi-keeper
 
-The permissionless keeper for the `hylo-xsol-nav-v1` feed, and a watcher for
-what it publishes. One binary, two subcommands.
+The permissionless keeper for every SVI feed, and a watcher for what it
+publishes. One binary, two subcommands, `--feed` picks the feed.
+
+```bash
+--feed stock:AAPL                 # a tokenized stock: two quotes, one transaction
+--feed stock:AAPL --post-updates  # ...bringing its own prices from Hermes
+--feed hylo-xsol                  # adapter #2, the default
+```
+
+Cranking holds no privileged key. `svi-core` accepts the write only because
+the adapter program's own PDA signed the CPI, so anyone can run this and
+nobody running it can change the number. A refusal publishes nothing and lets
+the previous quote expire — *fail stale, never fail wrong*.
+
+Deployment addresses for stock feeds come from `deployments.json` (override
+with `--deployments PATH`), which `scripts/plan-deployment.py` generates.
 
 ```bash
 cargo build --manifest-path tools/svi-keeper/Cargo.toml
