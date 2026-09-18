@@ -204,11 +204,13 @@ Ordered so that each item can actually be done when you reach it.
       `tools/nav-check/src/main.rs` as a test fixture and is in git history.
       Rotation is the only fix that counts — removing it from the file does
       not un-publish it.
-- [ ] Decide about `docs/context/`. It is deleted and gitignored, but the files
-      remain in history at `b307059` and `d564908`. Purging them means a
-      history rewrite and a force-push, which changes every commit SHA and
-      invalidates the open PR. Either do it deliberately before making the repo
-      public, or decide the transcripts are harmless and leave them.
+- [x] `docs/context/` is **purged from history**, not just deleted.
+      `git filter-repo --path docs/context --invert-paths` was run across every
+      ref and all three branches were force-pushed, so no object under that
+      path is reachable from anywhere in the repository. Verified by cloning
+      the remote fresh and finding zero matching objects across all refs. Every
+      commit SHA changed as a result: any existing clone of this repo is stale
+      and needs re-cloning rather than pulling.
 - [ ] Make the repository public
 - [ ] Confirm the README renders correctly on GitHub — tables and all
 
