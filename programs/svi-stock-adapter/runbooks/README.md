@@ -91,6 +91,35 @@ RPC-only endpoint it wants TPU and gossip it cannot reach, and a failed
 redeploy leaves the previous binary running — so a deploy that did nothing
 looks exactly like a code change that did nothing.
 
+### If `fetch-feed-ids.py` cannot reach Hermes
+
+Two failures look like an outage and are not:
+
+**`CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`** — this
+machine cannot verify TLS. A python.org build on macOS ships its own empty
+trust store and never reads the system keychain, which is usually the cause:
+
+```
+/Applications/Python\ 3.x/Install\ Certificates.command   # macOS
+python3 -m pip install certifi                            # any platform
+export SSL_CERT_FILE=/path/to/ca-bundle.crt               # explicit bundle
+```
+
+**`Tunnel connection failed: 403 Forbidden`** — an HTTPS proxy refused the
+host. That is a network policy, not a bug, and no other ticker will work.
+
+Either way the deployment does not have to stop. Fetch the feeds anywhere with
+access and pass the response in:
+
+```
+curl -s 'https://hermes.pyth.network/v2/price_feeds?query=AAPL' > aapl.json
+python3 scripts/fetch-feed-ids.py --from-file aapl.json AAPL
+```
+
+The file must contain both legs — `Equity.US.<SYM>/USD` and `Crypto.<SYM>X/USD`.
+Filtering and pairing are identical either way, so a file and a live fetch
+produce the same config.
+
 ---
 
 ## Do it locally first

@@ -38,6 +38,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from netutil import diagnose, tls_context  # noqa: E402
 from solana_pda import pda  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -116,7 +117,7 @@ class PriceUpdate:
 def rpc(url: str, method: str, params) -> dict:
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
     req = urllib.request.Request(url, data=body, headers={"content-type": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as r:
+    with urllib.request.urlopen(req, timeout=30, context=tls_context()) as r:
         out = json.loads(r.read().decode())
     if "error" in out:
         raise RuntimeError(f"{method}: {out['error'].get('message', out['error'])}")
@@ -138,7 +139,11 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
     try:
         got = fetch_account(url, address)
     except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
-        return False, [f"{label}: could not reach the RPC: {exc}"]
+        notes = [f"{label}: could not reach the RPC: {exc}"]
+        hint = diagnose(exc)
+        if hint:
+            notes += ["    " + ln for ln in hint.splitlines()]
+        return False, notes
 
     if got is None:
         return False, [
