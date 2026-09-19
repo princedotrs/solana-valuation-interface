@@ -116,6 +116,46 @@ Stage 5  ▸  Into the sRFC process, not parallel to it
 prove competence. Only stage 3+ proves a market. The kill criteria in the
 market analysis (§9) attach here.
 
+### Planned: `ORACLE_DIVERGENT` — attaches to stage 2
+
+The most pointed question about this design is why we depend on the oracle at
+all. We do not choose it: Hylo names its SOL/USD oracle in its own state, and
+`refresh_xsol_nav` requires the account it is handed to equal that field. We
+cannot disagree with the protocol about which price is authoritative, by
+construction rather than by diligence.
+
+That is the right constraint, because NAV means *what a holder would actually
+receive on redemption*, and Hylo computes redemption with its oracle. Pricing
+xSOL from a better feed would publish a number Hylo will not honour.
+
+But "we are required to use it" is not the same as "it is right", and a
+consumer deserves to know the difference. So the roadmap adds a flag rather
+than a substitution:
+
+> **`ORACLE_DIVERGENT` (bit 32, reserved)** — the upstream oracle this adapter
+> is required to use disagrees with an independent reference by more than a
+> configured tolerance.
+
+The value stays exactly as it is. A consumer reading the quote learns two
+separate things: this is the redemption value, and its input looks wrong.
+Those support different actions — the first prices a liquidation, the second
+pauses new borrowing — and collapsing them into one number serves neither.
+
+Why it is not in this milestone:
+
+- **It needs a second price source**, which is the thing we do not have. The
+  same gating that blocks the stock feeds blocks this.
+- **The tolerance is the whole design.** Too tight and it fires on ordinary
+  spread between venues; too loose and it never fires. That number needs
+  observed data, which stage 2's 72-hour observer run produces.
+- **It is a claim about someone else's oracle.** Publishing "Pyth looks wrong"
+  on-chain, wrongly, is worse than not publishing it. It should ship after the
+  audit, not before.
+
+Bit 32 is reserved in `svi-core`'s flag registry now, with a test asserting
+`KNOWN_MASK` does not yet claim it, so a later allocation cannot take the bit
+and give it a second meaning. Nothing sets it, and nothing claims to.
+
 ---
 
 ## 5. Messaging, by audience

@@ -557,9 +557,9 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
 {
   const s = lightSlide("Roadmap", "Six stages, each with a gate before the next", { tint: true });
   const stages = [
-    ["0", "Prove it on a fork", "Adapter publishes real xSOL NAV; off-chain recomputation matches exactly.", "DONE · 10 Sep", C.green, false, true],
+    ["0", "Prove it on a fork", "Adapter publishes real xSOL NAV; off-chain recomputation matches exactly.", "DONE · 18 Sep", C.green, false, true],
     ["1", "Mainnet + keeper", "Spec frozen and hashed. Both programs deployed. Keeper running; watcher public.", "NOW · ~2 weeks", C.violet, true, false],
-    ["2", "Observer + audit", "Zero divergence over 72 h through two RPCs. Third-party audit before any real collateral.", "Oct 2026", C.muted, false, false],
+    ["2", "Observer + audit", "Zero divergence over 72 h through two RPCs; that run sets the ORACLE_DIVERGENT tolerance. Audit before any real collateral.", "Oct 2026", C.muted, false, false],
     ["3", "First consumer", "One lending market or dashboard reads the quote account in production.", "Q4 2026", C.muted, false, false],
     ["4", "Adapter #2", "A second protocol ships with zero changes to core or the wire format.", "Q1 2027", C.muted, false, false],
     ["5", "Into the sRFC", "Submitted aligned with sRFC 40, not parallel to it.", "Q1–Q2 2027", C.muted, false, false],
