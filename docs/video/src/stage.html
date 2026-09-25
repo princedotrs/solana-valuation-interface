@@ -1,0 +1,276 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>stage</title>
+<style>
+:root{--bg:#0e0c18;--bg2:#161327;--panel:#1b1830;--line:#2e2950;--ink:#ecebf5;--ink2:#b9b5d3;--ink3:#7d78a0;
+--acc:#8b6cff;--acc2:#b9a6ff;--amb:#f2b544;--grn:#45c46b;--red:#ff6161;--blu:#5aa7ff;
+--sans:"Liberation Sans","DejaVu Sans",sans-serif;--mono:"DejaVu Sans Mono","Liberation Mono",monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+body{background:radial-gradient(1200px 700px at 12% -10%,#2a1f5a 0%,transparent 60%),radial-gradient(900px 600px at 110% 110%,#1d2a4a 0%,transparent 60%),var(--bg)}
+#brand{position:absolute;left:64px;top:36px;font:600 22px var(--sans);letter-spacing:.02em;color:var(--ink2);display:flex;gap:14px;align-items:center;z-index:5}
+#brand i{width:14px;height:14px;border-radius:3px;background:var(--amb);display:inline-block}
+#brand span{font:400 17px var(--mono);color:var(--ink3)}
+#prog{position:absolute;left:0;bottom:0;height:5px;background:var(--acc);z-index:5}
+#cap{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);max-width:1560px;text-align:center;z-index:6;
+ font:500 31px/1.35 var(--sans);color:#fff;background:rgba(8,6,16,.82);padding:14px 30px;border-radius:12px;border:1px solid rgba(255,255,255,.08)}
+#cap:empty{display:none}
+#scene{position:absolute;left:0;top:0;width:1920px;height:1080px}
+.area{position:absolute;left:120px;right:120px;top:110px;bottom:170px}
+
+/* terminal */
+.term{position:absolute;inset:0;background:#0a0913;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.term .bar{height:56px;display:flex;align-items:center;gap:10px;padding:0 22px;background:#151225;border-bottom:1px solid var(--line)}
+.term .bar b{width:14px;height:14px;border-radius:50%;background:#3a3558;display:inline-block}
+.term .bar .tt{margin-left:14px;white-space:nowrap;font:500 19px var(--mono);color:var(--ink3)}
+.badge{margin-left:auto;font:600 15px var(--mono);padding:7px 14px;border-radius:999px;letter-spacing:.02em;white-space:nowrap;max-width:980px;overflow:hidden;text-overflow:ellipsis}
+.badge.replay{background:rgba(242,181,68,.14);color:var(--amb);border:1px solid rgba(242,181,68,.4)}
+.badge.live{background:rgba(69,196,107,.14);color:var(--grn);border:1px solid rgba(69,196,107,.4)}
+.term .body{position:absolute;left:0;right:0;top:56px;bottom:0;overflow:hidden;padding:22px 30px}
+.term .inner{font:22px/34px var(--mono);white-space:pre;color:#d9d6ee}
+.term .l{opacity:0}
+.c-d{color:#8984a8}.c-g{color:var(--grn);font-weight:700}.c-ok{color:#cfcbe6}.c-ok .okw{color:var(--grn);font-weight:700}
+.c-a{color:var(--amb);font-weight:700}.c-v{color:var(--acc2)}.c-big{color:#fff;font-weight:700;font-size:30px}
+.prompt{color:var(--acc2)}.cursor{display:inline-block;width:12px;height:26px;background:#d9d6ee;vertical-align:-5px}
+
+/* code */
+.code{position:absolute;inset:0;background:#0d0b18;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.code .bar{height:56px;display:flex;align-items:center;padding:0 24px;background:#151225;border-bottom:1px solid var(--line);font:500 20px var(--mono);color:var(--ink2)}
+.code .bar em{font-style:normal;color:var(--ink3);margin-left:auto;font-size:16px}
+.code .body{position:absolute;left:0;right:0;top:56px;bottom:0;overflow:hidden}
+.code .inner{position:absolute;left:0;right:0;top:0;padding:14px 0}
+.cl{font:21px/32px var(--mono);white-space:pre;display:flex;color:#d6d2ec;transition:none;position:relative}
+.cl .n{width:80px;text-align:right;padding-right:22px;color:#4d4870;flex:none}
+.cl .hlb{position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(139,108,255,.0);border-left:4px solid transparent}
+.cl .t{position:relative}
+.k-c{color:#8a86a6;font-style:italic}.k-k{color:#c3a6ff}.k-m{color:var(--amb)}.k-s{color:#9fdc9f}.k-t{color:#7cc4ff}
+
+/* image */
+.img{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden}
+.img img{position:absolute;left:0;top:0;transform-origin:0 0}
+.kick{font:700 18px var(--mono);letter-spacing:.14em;color:var(--acc2)}
+.imgk{position:absolute;right:64px;top:36px;z-index:4;background:rgba(8,6,16,.8);padding:8px 16px;border-radius:8px}
+
+/* cards */
+.card{position:absolute;left:220px;right:220px;top:150px}
+.card h1{font:700 60px/1.12 var(--sans);margin:18px 0 44px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:40px;padding:24px 30px;border:1px solid var(--line);background:rgba(27,24,48,.8);border-radius:14px;margin-bottom:16px;opacity:0}
+.row .k{font:500 28px var(--sans);color:var(--ink2)}
+.row .v{font:700 30px var(--mono);text-align:right}
+.v.red{color:var(--red)}.v.amb{color:var(--amb)}.v.grn{color:var(--grn)}
+.claim{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding-left:220px;padding-bottom:80px}
+.claim div{font:800 104px/1.12 var(--sans);opacity:0;letter-spacing:-.02em}
+.claim .mut{color:var(--ink3)}.claim .acc{color:var(--acc)}
+.title{position:absolute;left:220px;right:220px;top:200px}
+.title h1{font:800 76px/1.1 var(--sans);margin:22px 0 50px;letter-spacing:-.01em}
+.bul{font:500 34px/1.4 var(--sans);margin:0 0 18px;opacity:0;display:flex;gap:22px}
+.bul:before{content:"";flex:none;width:12px;height:12px;border-radius:3px;background:var(--acc);margin-top:17px}
+.bul.mut{color:var(--ink3);font-size:27px;margin-top:30px}.bul.mut:before{background:var(--ink3)}
+.end{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:90px}
+.end h1{font:800 180px/1 var(--sans);letter-spacing:-.03em}
+.end h2{font:500 44px var(--sans);color:var(--ink2);margin-top:22px}
+.end p{font:500 30px var(--mono);color:var(--acc2);margin-top:50px}
+.end small{font:500 22px var(--mono);color:var(--amb);margin-top:26px}
+
+/* formula */
+.fx{position:absolute;left:160px;right:160px;top:170px}
+.eq{font:700 50px/1.3 var(--sans);margin:30px 0 60px;opacity:0}
+.eq .tm{display:inline-block;padding:2px 16px;border-radius:12px;transition:none}
+.flow{display:flex;align-items:center;gap:26px;opacity:0}
+.box{flex:1;border:2px solid var(--line);background:rgba(27,24,48,.9);border-radius:16px;padding:24px 26px}
+.box b{display:block;font:700 30px var(--sans);margin-bottom:8px}.box span{font:400 22px var(--mono);color:var(--ink2)}
+.arrow{font:700 46px var(--sans);color:var(--ink3)}
+.chips{display:flex;gap:18px;margin-top:48px;opacity:0}
+.chip{font:700 28px var(--mono);padding:14px 26px;border-radius:999px;border:2px solid rgba(69,196,107,.5);color:var(--grn);background:rgba(69,196,107,.1)}
+
+/* stocks */
+.stk{position:absolute;left:160px;right:160px;top:150px}
+.pair{display:flex;gap:36px;margin-top:30px}
+.q{flex:1;border:2px solid var(--line);border-radius:18px;padding:30px;background:rgba(27,24,48,.9);opacity:0}
+.q .nm{font:700 27px var(--mono);color:#fff}.q .ty{font:500 22px var(--mono);color:var(--acc2);margin:10px 0 22px}
+.q .src{font:500 24px var(--mono);color:var(--ink2)}.q .what{font:600 32px var(--sans);margin-top:20px}
+.gap{margin:30px 0 0;text-align:center;font:700 34px var(--sans);color:var(--amb);opacity:0}
+.flags{display:flex;gap:16px;margin-top:34px;justify-content:center;opacity:0;flex-wrap:wrap}
+.flag{font:700 24px var(--mono);padding:12px 20px;border-radius:10px;border:2px solid rgba(242,181,68,.45);color:var(--amb);background:rgba(242,181,68,.08)}
+.flag small{color:var(--ink3);font-weight:500;margin-left:10px}
+.same{margin-top:18px;text-align:center;font:500 24px var(--mono);color:var(--grn);opacity:0}
+</style></head>
+<body>
+<div id="brand"><i></i>SVI <span id="vname"></span></div>
+<div id="scene"></div>
+<div id="cap"></div>
+<div id="prog"></div>
+<script>
+const $ = (h) => { const d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstChild; };
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const ease = (x) => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+let S = null, TM = null, st = {}, TOTAL = 1, SCSTART = 0;
+
+function sentStart(i) { const s = TM.sents[Math.min(i, TM.sents.length - 1)]; return s ? s.t0 : 0; }
+function sentEnd(i) { const s = TM.sents[Math.min(i, TM.sents.length - 1)]; return s ? s.t1 : TM.dur; }
+
+function hlRust(line) {
+  let s = esc(line);
+  const ci = s.indexOf('//');
+  let tail = '';
+  if (ci >= 0) { tail = '<span class="k-c">' + s.slice(ci) + '</span>'; s = s.slice(0, ci); }
+  s = s.replace(/(&quot;|"[^"]*")/g, '<span class="k-s">$1</span>');
+  s = s.replace(/\b(pub|fn|let|if|return|const|struct|mod|use|impl|as|for|in|mut|self|Self)\b/g, '<span class="k-k">$1</span>');
+  s = s.replace(/\b(require_keys_eq!|require!|msg!|error!|assert!)/g, '<span class="k-m">$1</span>');
+  s = s.replace(/\b(u8|u16|u64|i64|Pubkey|Result|VerifiedPrice|AccountInfo|Quote)\b/g, '<span class="k-t">$1</span>');
+  s = s.replace(/(#\[[^\]]*\])/g, '<span class="k-m">$1</span>');
+  return s + tail;
+}
+
+window.setup = (name, total) => { document.getElementById('vname').textContent = name; TOTAL = total; };
+
+window.load = async (scene, tm, start) => {
+  S = scene; TM = tm; st = {}; SCSTART = start;
+  const root = document.getElementById('scene'); root.innerHTML = '';
+  if (scene.type === 'term') {
+    const el = $(`<div class="area"><div class="term"><div class="bar"><b></b><b></b><b></b><span class="tt">${esc(scene.title)}</span><span class="badge ${scene.kind}">${esc(scene.badge)}</span></div><div class="body"><div class="inner"></div></div></div></div>`);
+    root.appendChild(el);
+    const inner = el.querySelector('.inner');
+    const cmd = $(`<div class="cmdl"><span class="prompt">$ </span><span class="typed"></span><span class="cursor"></span></div>`);
+    inner.appendChild(cmd);
+    st.lines = [];
+    const typeEnd = 0.3 + Math.min(1.8, scene.cmd.length * 0.028);
+    st.typeEnd = typeEnd;
+    for (const g of scene.groups) {
+      let t0 = Math.max(sentStart(g.at), typeEnd + 0.25);
+      const avail = Math.max(0.8, (sentEnd(g.at) - t0) * 0.7);
+      const stag = Math.min(0.14, avail / Math.max(1, g.lines.length));
+      g.lines.forEach(([txt, c], i) => {
+        let h = esc(txt || ' ');
+        if (c === 'ok') h = h.replace(/(\.\.\. ok|^ok)/, '<span class="okw">$1</span>');
+        const l = $(`<div class="l c-${c || 'x'}">${h}</div>`);
+        inner.appendChild(l);
+        st.lines.push({ el: l, t: t0 + i * stag, h: c === 'big' ? 40 : 34 });
+      });
+    }
+    st.inner = inner; st.cmd = cmd; st.viewH = 1080 - 110 - 170 - 56 - 44;
+  } else if (scene.type === 'code') {
+    const el = $(`<div class="area"><div class="code"><div class="bar">${esc(scene.file)}<em>lines ${scene.start}–${scene.start + scene.code.split('\n').length - 1}</em></div><div class="body"><div class="inner"></div></div></div></div>`);
+    root.appendChild(el);
+    const inner = el.querySelector('.inner');
+    st.rows = scene.code.split('\n').map((ln, i) => {
+      const r = $(`<div class="cl"><div class="hlb"></div><span class="n">${scene.start + i}</span><span class="t">${hlRust(ln) || ' '}</span></div>`);
+      inner.appendChild(r); return r;
+    });
+    st.inner = inner; st.viewH = 1080 - 110 - 170 - 56;
+  } else if (scene.type === 'image') {
+    const src = scene.src.startsWith('repo:') ? '../../../' + scene.src.slice(5) : 'build/shots/' + scene.src.slice(5);
+    const el = $(`<div class="img"><img></div>`);
+    root.appendChild(el);
+    if (scene.kicker) root.appendChild($(`<div class="imgk kick">${esc(scene.kicker)}</div>`));
+    const img = el.querySelector('img');
+    await new Promise((res) => { img.onload = res; img.onerror = res; img.src = src; });
+    st.img = img; st.iw = img.naturalWidth; st.ih = img.naturalHeight;
+  } else if (scene.type === 'card') {
+    const el = $(`<div class="card"><div class="kick">${esc(scene.kicker)}</div><h1>${esc(scene.title)}</h1></div>`);
+    st.rows = scene.items.map((it) => { const r = $(`<div class="row"><span class="k">${esc(it.k)}</span><span class="v ${it.c}">${esc(it.v)}</span></div>`); el.appendChild(r); return { el: r, t: sentStart(it.at) }; });
+    root.appendChild(el);
+  } else if (scene.type === 'claim') {
+    const el = $(`<div class="claim"></div>`);
+    st.rows = scene.lines.map((l, i) => { const r = $(`<div class="${l.c || ''}">${esc(l.t)}</div>`); el.appendChild(r); return { el: r, t: sentStart(l.at) + (l.at === 0 ? 0.1 * i : 0) }; });
+    root.appendChild(el);
+  } else if (scene.type === 'title') {
+    const el = $(`<div class="title"><div class="kick">${esc(scene.kicker)}</div><h1>${esc(scene.title)}</h1></div>`);
+    st.rows = scene.bullets.map((b, i) => { const r = $(`<div class="bul ${b.c || ''}">${esc(b.t)}</div>`); el.appendChild(r); return { el: r, t: sentStart(b.at) + (b.c ? 0 : i * 0.9) }; });
+    root.appendChild(el);
+  } else if (scene.type === 'end') {
+    root.appendChild($(`<div class="end"><h1>${esc(scene.title)}</h1><h2>${esc(scene.sub)}</h2><p>${esc(scene.url)}</p><small>open source · permissionless · no token · unaudited · mainnet fork, not mainnet</small></div>`));
+  } else if (scene.type === 'formula') {
+    const el = $(`<div class="fx"><div class="kick">WHERE THE NUMBER COMES FROM</div>
+      <div class="eq">xSOL&nbsp;=&nbsp;( <span class="tm">collateral</span> × <span class="tm">SOL price</span> − <span class="tm">hyUSD debt</span> ) ÷ <span class="tm">xSOL supply</span></div>
+      <div class="flow"><div class="box"><b>Hylo's accounts</b><span>vault · LST headers · mints</span></div><div class="arrow">→</div>
+      <div class="box" style="border-color:var(--acc)"><b>svi-hylo-adapter</b><span>on-chain · Hylo's own hylo-core</span></div><div class="arrow">→</div>
+      <div class="box" style="border-color:var(--amb)"><b>quote account</b><span>320 bytes · anyone reads</span></div></div>
+      <div class="chips"><span class="chip">no server</span><span class="chip">no API key</span><span class="chip">nothing to trust about us</span></div></div>`);
+    root.appendChild(el);
+    st.eq = el.querySelector('.eq'); st.terms = [...el.querySelectorAll('.eq .tm')]; st.flow = el.querySelector('.flow'); st.chips = el.querySelector('.chips');
+  } else if (scene.type === 'stocks') {
+    const el = $(`<div class="stk"><div class="kick">SAME INTERFACE · A DIFFERENT ASSET · svi-stock-adapter</div>
+      <div class="pair">
+        <div class="q"><div class="nm">stock-aapl-fair-value-v1</div><div class="ty">ReferenceFairValue (7)</div><div class="src">Pyth · Equity.US.AAPL/USD</div><div class="what">what the real share is worth</div></div>
+        <div class="q"><div class="nm">stock-aapl-market-v1</div><div class="ty">MarketSpot (2)</div><div class="src">Pyth · Crypto.AAPLX/USD</div><div class="what">what the token trades at on Solana</div></div>
+      </div>
+      <div class="gap">↔ the gap between them — published by nobody else</div>
+      <div class="same">one instruction · same observed_slot · never half-updated</div>
+      <div class="flags"><span class="flag">MARKET_CLOSED<small>bit 16</small></span><span class="flag">REFERENCE_STALE<small>bit 17</small></span><span class="flag">TOKEN_FEED_STALE<small>bit 18</small></span><span class="flag">DEVIATION_HIGH<small>bit 19</small></span></div></div>`);
+    root.appendChild(el);
+    const qs = el.querySelectorAll('.q');
+    st.items = [[qs[0], 0], [qs[1], 1], [el.querySelector('.gap'), 2], [el.querySelector('.same'), 3], [el.querySelector('.flags'), 3]].map(([e, a]) => ({ el: e, t: sentStart(a) + (a === 3 && e.className === 'flags' ? 0.8 : 0) }));
+  }
+};
+
+function fadeIn(el, t, t0, d = 0.45) { const p = ease((t - t0) / d); el.style.opacity = p; el.style.transform = `translateY(${(1 - p) * 18}px)`; }
+
+window.frame = (t) => {
+  document.getElementById('brand').style.opacity = S.type === 'image' ? 0 : 1;
+  const sc = document.getElementById('scene');
+  sc.style.opacity = ease(t / 0.4) * (1 - ease((t - (TM.dur - 0.3)) / 0.3));
+  // caption
+  let cap = '';
+  for (const s of TM.sents) if (t >= s.t0 - 0.05 && t <= s.t1 + 0.3) cap = s.text;
+  const ce = document.getElementById('cap'); if (ce.textContent !== cap) ce.textContent = cap;
+  document.getElementById('prog').style.width = (1920 * (SCSTART + t) / TOTAL) + 'px';
+
+  if (S.type === 'term') {
+    const n = S.cmd.length, tp = clamp((t - 0.3) / (st.typeEnd - 0.3));
+    st.cmd.querySelector('.typed').textContent = S.cmd.slice(0, Math.round(n * tp));
+    st.cmd.querySelector('.cursor').style.visibility = (t < st.typeEnd + 0.1 && Math.floor(t * 2.5) % 2 === 0) || t < st.typeEnd ? 'visible' : 'hidden';
+    let hsum = 34;
+    for (const l of st.lines) { const p = clamp((t - l.t) / 0.12); l.el.style.opacity = p; hsum += l.h * p; }
+    const off = Math.max(0, hsum - st.viewH);
+    st.inner.style.transform = `translateY(${-off}px)`;
+  } else if (S.type === 'code') {
+    let cur = null, prev = null;
+    for (const h of S.hl) { if (t >= sentStart(h.at) - 0.1) { prev = cur; cur = h; } }
+    const lh = 32, rel = (ln) => ln - S.start;
+    const center = (h) => h ? ((rel(h.a) + rel(h.b)) / 2) * lh + 14 : 0;
+    const maxOff = Math.max(0, st.rows.length * lh + 28 - st.viewH);
+    const target = (h) => clamp(center(h) - st.viewH * 0.42, 0, maxOff);
+    let off = target(cur);
+    if (cur && prev) { const p = ease((t - (sentStart(cur.at) - 0.1)) / 0.7); off = target(prev) + (target(cur) - target(prev)) * p; }
+    else if (cur) { const p = ease((t - (sentStart(cur.at) - 0.1)) / 0.9); off = target(cur) * p; }
+    st.inner.style.transform = `translateY(${-off}px)`;
+    const hp = cur ? ease((t - (sentStart(cur.at) - 0.1)) / 0.35) : 0;
+    st.rows.forEach((r, i) => {
+      const ln = S.start + i, on = cur && ln >= cur.a && ln <= cur.b;
+      const b = r.firstChild;
+      b.style.background = on ? `rgba(139,108,255,${0.2 * hp})` : 'transparent';
+      b.style.borderLeftColor = on ? `rgba(242,181,68,${hp})` : 'transparent';
+      r.style.opacity = cur ? (on ? 1 : 0.42 + 0.58 * (1 - hp)) : 1;
+    });
+  } else if (S.type === 'image') {
+    const tf = t / TM.dur, P = S.pan; let a = P[0], b = P[P.length - 1];
+    let v;
+    if (tf <= P[0][0]) v = P[0]; else {
+      for (let i = 0; i < P.length - 1; i++) if (tf >= P[i][0] && tf <= P[i + 1][0]) { a = P[i]; b = P[i + 1]; }
+      const p = ease((tf - a[0]) / Math.max(1e-6, b[0] - a[0]));
+      v = [0, a[1] + (b[1] - a[1]) * p, a[2] + (b[2] - a[2]) * p];
+      if (tf >= P[P.length - 1][0]) v = P[P.length - 1];
+    }
+    const W = 1920, H = 1080;
+    const base = S.fitWidth ? W / st.iw : Math.min(W / st.iw, (H - 60) / st.ih);
+    const sc2 = base * v[2], w = st.iw * sc2, h = st.ih * sc2;
+    let x = W / 2 - w / 2, y;
+    if (S.fitWidth) y = -v[1] * (h - H);
+    else { y = H / 2 - v[1] * h; y = Math.min(y, h < H ? (H - h) / 2 : 0); y = Math.max(y, h < H ? (H - h) / 2 : H - h); if (w > W) x = W / 2 - 0.5 * w; }
+    st.img.style.transform = `translate(${x}px,${y}px) scale(${sc2})`;
+  } else if (S.type === 'card' || S.type === 'claim' || S.type === 'title') {
+    for (const r of st.rows) fadeIn(r.el, t, r.t);
+  } else if (S.type === 'formula') {
+    fadeIn(st.eq, t, sentStart(1) - 0.2);
+    const hp = t >= sentStart(2) && t < sentStart(3) + 0.3;
+    st.terms.forEach((e, i) => { const on = hp && t >= sentStart(2) + i * 0.35; e.style.background = on ? 'rgba(242,181,68,.2)' : 'transparent'; e.style.color = on ? 'var(--amb)' : ''; });
+    fadeIn(st.flow, t, sentStart(3));
+    fadeIn(st.chips, t, sentStart(4));
+    if (t < sentStart(1) - 0.2) { st.eq.style.opacity = 0; }
+  } else if (S.type === 'stocks') {
+    for (const r of st.items) fadeIn(r.el, t, r.t);
+  }
+};
+</script>
+</body></html>
