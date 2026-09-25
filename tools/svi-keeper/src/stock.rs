@@ -513,3 +513,52 @@ mod explain_tests {
         assert_eq!(explain_stock("blockhash not found"), "blockhash not found");
     }
 }
+
+#[cfg(test)]
+mod explain_passthrough_tests {
+    use super::explain_stock;
+
+    /// A failure that is not a program error must keep its cause.
+    ///
+    /// The keeper used to format these with `to_string()`, which on an anyhow
+    /// error yields only the OUTERMOST context. Every Hermes failure therefore
+    /// printed "fetching the equity price from Hermes" and nothing else -- the
+    /// status code, the URL and the transport error were all in the source
+    /// chain and thrown away, leaving an operator with a sentence that says
+    /// what was being attempted and never why it failed.
+    ///
+    /// `{:#}` joins the whole chain with ": " on one line, which is why the
+    /// fallback below can take `.lines().next()` and still keep all of it.
+    #[test]
+    fn a_non_program_error_keeps_its_whole_chain() {
+        let chain = "fetching the equity price from Hermes: \
+                     Hermes rejected the request for abc123: \
+                     HTTP status client error (403 Forbidden) for url (https://hermes…)";
+        let out = explain_stock(chain);
+        assert!(out.contains("403"), "the status must survive: {out}");
+        assert!(out.contains("Hermes rejected"), "the cause must survive: {out}");
+        assert_eq!(out, chain, "a non-program error should pass through intact");
+    }
+
+    /// The single-context case the old code handled correctly must not regress.
+    #[test]
+    fn a_bare_message_is_unchanged() {
+        assert_eq!(explain_stock("connection refused"), "connection refused");
+    }
+
+    /// A program error still wins over the surrounding context, because the
+    /// decoded meaning is more useful than the transport story around it.
+    #[test]
+    fn a_program_error_is_still_decoded() {
+        let err = "sending transaction: custom program error: 0x1772";
+        let out = explain_stock(err);
+        assert!(out.starts_with("PythNotFullyVerified (6002)"), "{out}");
+    }
+
+    /// 0x1776 is PythTooOld. Guards the mapping the deployment actually hit.
+    #[test]
+    fn the_staleness_error_maps_to_6006() {
+        let out = explain_stock("custom program error: 0x1776");
+        assert!(out.starts_with("PythTooOld (6006)"), "{out}");
+    }
+}

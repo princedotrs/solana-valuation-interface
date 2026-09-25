@@ -300,6 +300,53 @@ impl Quote {
     }
 }
 
+/// The id a program must be deployed at: the one its binary declares.
+///
+/// Anchor checks, on every instruction, that the address it was invoked at
+/// equals the `declare_id!` compiled into it, and aborts with
+/// DeclaredProgramIdMismatch (4100) otherwise. So the deploy address is not a
+/// choice -- it is whatever the built binary says, and `declare_id!` in the
+/// crate being deployed is the only thing that knows.
+///
+/// Two wrong answers, both tried here first:
+///
+/// * A constant in this file. It does not move when `anchor keys sync`
+///   rewrites `declare_id!`, which happens while setting up an unrelated
+///   workspace, and svi-core is shared by both adapters.
+/// * The deploy keypair. `anchor keys sync` copies the keypair's pubkey INTO
+///   `declare_id!`, so the two agree only in a workspace where someone has run
+///   it. In one where nobody has -- this adapter -- the keypair is a freshly
+///   generated key the binary has never heard of.
+///
+/// Reading the source is the only option that is right in both cases. A
+/// disagreeing keypair is reported rather than used, because `anchor deploy`
+/// WOULD use it and reproduce this failure outside the test.
+fn declared_id(rel_src: &str, rel_keypair: &str, fallback: &str) -> (Pubkey, String) {
+    let src: PathBuf = [env!("CARGO_MANIFEST_DIR"), rel_src].iter().collect();
+    let parsed = std::fs::read_to_string(&src).ok().and_then(|text| {
+        let i = text.find("declare_id!(\"")? + "declare_id!(\"".len();
+        let rest = &text[i..];
+        let j = rest.find('"')?;
+        rest[..j].parse::<Pubkey>().ok()
+    });
+
+    let id = match parsed {
+        Some(id) => id,
+        None => return (pk(fallback), format!("{fallback} (constant; no declare_id! in {rel_src})")),
+    };
+
+    let kp: PathBuf = [env!("CARGO_MANIFEST_DIR"), rel_keypair].iter().collect();
+    let note = match read_keypair_file(&kp) {
+        Ok(k) if k.pubkey() != id => format!(
+            "{id} (declare_id!)  WARNING: {} holds {}, so `anchor deploy` would \
+             deploy this binary at an address it does not declare. Run `anchor keys sync` \
+             and rebuild before deploying for real.",
+            rel_keypair.rsplit('/').next().unwrap_or(rel_keypair), k.pubkey()),
+        _ => format!("{id} (declare_id!)"),
+    };
+    (id, note)
+}
+
 fn read_so(rel: &str) -> Result<Vec<u8>> {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), rel].iter().collect();
     std::fs::read(&path).with_context(|| {
@@ -323,8 +370,14 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
     }
     println!("\nsurfnet   {}\nmainnet   {}", redact(&url), redact(&mainnet));
 
-    let svi_core = pk(SVI_CORE_ID);
-    let adapter = pk(ADAPTER_ID);
+    let (svi_core, core_src) = declared_id(
+        "../../../svi-core/programs/svi-core/src/lib.rs",
+        "../../../svi-core/target/deploy/svi_core-keypair.json", SVI_CORE_ID);
+    let (adapter, adapter_src) = declared_id(
+        "src/lib.rs",
+        "../../target/deploy/svi_hylo_adapter-keypair.json", ADAPTER_ID);
+    println!("  svi-core               {core_src}");
+    println!("  adapter                {adapter_src}");
     let payer = read_keypair_file(&kp_path).map_err(|e| anyhow!("keypair {kp_path}: {e}"))?;
     if rpc.get_balance(&payer.pubkey()).await? < 1_000_000_000 {
         let sig = rpc.request_airdrop(&payer.pubkey(), 10_000_000_000).await?;
@@ -527,3 +580,46 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
     println!("  MATCH: on-chain program and off-chain reader agree to the last digit.\n");
     Ok(())
 }
+
+#[cfg(test)]
+mod id_source_tests {
+    use super::*;
+
+    /// Both paths must resolve and parse. A typo in either sends the test back
+    /// to the fallback constant silently, which is the exact failure this
+    /// function exists to prevent -- and the symptom would again be a 4100
+    /// hundreds of lines later, naming neither id.
+    #[test]
+    fn both_ids_come_from_declare_id_not_the_fallback() {
+        let (core, core_note) = declared_id(
+            "../../../svi-core/programs/svi-core/src/lib.rs",
+            "../../../svi-core/target/deploy/svi_core-keypair.json", SVI_CORE_ID);
+        let (adapter, adapter_note) = declared_id(
+            "src/lib.rs",
+            "../../target/deploy/svi_hylo_adapter-keypair.json", ADAPTER_ID);
+
+        assert!(core_note.contains("declare_id!"),
+            "svi-core fell back to a constant: {core_note}");
+        assert!(adapter_note.contains("declare_id!"),
+            "the adapter fell back to a constant: {adapter_note}");
+
+        // The adapter's own crate is right here, so its declared id is knowable
+        // without reading anything: it is what lib.rs says.
+        assert_eq!(adapter, crate::ID_FROM_SOURCE_CHECK.parse::<Pubkey>().unwrap(),
+            "the adapter id parsed from source disagrees with the checked-in value");
+        assert_ne!(core, adapter, "the two programs must not share an id");
+    }
+
+    /// A missing source file falls back rather than panicking, and says so.
+    #[test]
+    fn a_missing_source_falls_back_and_admits_it() {
+        let (id, note) = declared_id("src/does-not-exist.rs", "nowhere.json", SVI_CORE_ID);
+        assert_eq!(id, pk(SVI_CORE_ID));
+        assert!(note.contains("constant"), "{note}");
+    }
+}
+
+/// The adapter's declared id, checked in so the test above can catch a source
+/// parse that silently reads the wrong crate.
+#[allow(dead_code)]
+const ID_FROM_SOURCE_CHECK: &str = "FfK5xyE3v3GT2F9wzqhpLMHx7zCJsGPQrHAvxtgL3Mpr";

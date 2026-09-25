@@ -4,8 +4,9 @@
 //   NODE_PATH=/path/to/node_modules node docs/deck/build_deck.js
 //
 // Every claim here is a compression of docs/product/ and docs/validation/;
-// those are the source of truth. The on-chain figures are from the first
-// publication on 10 Sep 2026 (docs/validation/2026-09-10-xsol-nav-mainnet.md).
+// those are the source of truth. The on-chain figures are from the run on
+// 18 Sep 2026 (docs/validation/2026-09-18-xsol-nav-surfnet.md); the 10 Sep
+// record covers the earlier read-only recomputation.
 const pptxgen = require("pptxgenjs");
 const path = require("path");
 
@@ -146,12 +147,12 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
 // ================================================================ 02 THE RECEIPT
 {
   const s = lightSlide("Adapter #2 · hylo-xsol-nav-v1", "The interface already generalises. Here is the receipt.");
-  s.addText("Before stocks, the same core published a leveraged token's NAV — computed by subtraction from a protocol's vault, nothing like a Pyth feed. 10 Sep 2026, on a fork of Solana mainnet with Hylo's real accounts re-cloned seconds before.", {
+  s.addText("Before stocks, the same core published a leveraged token's NAV — computed by subtraction from a protocol's vault, nothing like a Pyth feed. 18 Sep 2026, on a fork of Solana mainnet with Hylo's real accounts re-cloned seconds before.", {
     x: M, y: 1.4, w: 11.4, h: 0.4, margin: 0, isTextBox: true, fontFace: F, fontSize: 14, color: C.muted,
   });
   const stats = [
-    ["$0.0603", "per xSOL — $0.060285498,\ncomputed on-chain by hylo-core", C.violet],
-    ["4.9 bps", "wide band: redeem $0.060285498,\nmint $0.060315053", C.violet],
+    ["$0.0697", "per xSOL — $0.069715188,\ncomputed on-chain by hylo-core", C.violet],
+    ["13.5 bps", "wide band: redeem $0.069715188,\nmint $0.069809602", C.violet],
     ["0", "difference from an independent\noff-chain recomputation", C.green],
     ["~13k CU", "to refresh; ~200 CU\nfor a consumer to read", C.muted],
   ];
@@ -163,15 +164,15 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
   });
 
   card(s, { x: M, y: 4.16, w: 7.4, h: 2.5, fill: C.deep, line: C.deep });
-  s.addText("PUBLISHED QUOTE  ·  G28Ba5F9X71Pih2SNobXyU98tjQdga1Ztbzqg3PU4rWj", {
+  s.addText("PUBLISHED QUOTE  ·  2EhQfH26gQBxi8RteUVCXXA5MMnwuLZgFnMqQxLkseuc", {
     x: M + 0.3, y: 4.34, w: 6.9, h: 0.26, margin: 0, isTextBox: true, fontFace: MONO, fontSize: 9.5, color: "9F98C4" });
   s.addText(
-    "quote_amount    $ 0.060285498\n" +
-    "lower / upper   $ 0.060285498 .. $ 0.060315053\n" +
+    "quote_amount    $ 0.069715188\n" +
+    "lower / upper   $ 0.069715188 .. $ 0.069809602\n" +
     "base_amount     1000000  (1 whole xSOL)\n" +
-    "observed_slot   445953445   valid_until 445954195\n" +
+    "observed_slot   448083727   valid_until 448084477\n" +
     "sequence        1           flags  BUY_ZONE\n" +
-    "off-chain hylo-core:  $ 0.060285498   MATCH", {
+    "off-chain hylo-core:  $ 0.069715188   MATCH", {
     x: M + 0.3, y: 4.68, w: 6.9, h: 1.86, margin: 0, isTextBox: true, fontFace: MONO, fontSize: 12, color: C.paper, lineSpacing: 18 });
 
   card(s, { x: M + 7.64, y: 4.16, w: 4.453, h: 2.5, fill: C.greenBg, line: "BFE3CC" });
@@ -474,7 +475,7 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
     s.addShape(pres.ShapeType.line, { x: x + 0.28, y: 5.22, w: cw - 0.56, h: 0, line: { color: C.line, width: 1 } });
     s.addText(foot, { x: x + 0.28, y: 5.34, w: cw - 0.56, h: 1.0, margin: 0, isTextBox: true, fontFace: F, fontSize: 11.5, italic: true, color: C.muted, lineSpacing: 15 });
   });
-  s.addText("A worked example: 100,000 xSOL deposited → the market reads valid_until ≥ now, flags clear, lower bound $0.060285498 → $6,028.55 of collateral → $3,617 borrowable at 60% LTV. When valid_until passes, refuse new borrows; never guess.", {
+  s.addText("A worked example: 100,000 xSOL deposited → the market reads valid_until ≥ now, flags clear, lower bound $0.069715188 → $6,971.52 of collateral → $4,183 borrowable at 60% LTV. When valid_until passes, refuse new borrows; never guess.", {
     x: M, y: 6.64, w: CW, h: 0.42, margin: 0, isTextBox: true, fontFace: F, fontSize: 12, color: C.muted });
   pageNum(s, false);
 }
@@ -485,18 +486,19 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
   const rows = [
     [th("Component"), th("State"), th("What it is")],
     [td("programs/svi-core"), td("DONE", { bold: true, color: C.green }), td("Descriptor + 320-byte quote, layout asserted by test. Accepts a write only from the adapter PDA named in the descriptor. Sequence, validity, bounds enforced.")],
-    [td("programs/svi-stock-adapter"), td("DONE", { bold: true, color: C.green }), td("Two Pyth feeds in, two quotes out, one instruction. Verifies owner, feed id, verification level, publish time, age and confidence, and refuses on each. 19 tests.")],
-    [td("programs/svi-hylo-adapter"), td("DONE", { bold: true, color: C.green }), td("Adapter #2: xSOL NAV computed by subtraction from Hylo's vault, hylo-core pinned to a commit. 17 tests, including a live run on a mainnet fork.")],
-    [td("tools/svi-keeper"), td("DONE", { bold: true, color: C.green }), td("Permissionless crank for both feeds, with decoded refusal codes. Posts its own Pyth updates from Hermes where a feed is not sponsored. 22 tests.")],
+    [td("programs/svi-stock-adapter"), td("DONE", { bold: true, color: C.green }), td("Two Pyth feeds in, two quotes out, one instruction. Verifies owner, feed id, verification level, publish time, age and confidence, and refuses on each. Thresholds correctable in place. 26 tests.")],
+    [td("programs/svi-hylo-adapter"), td("DONE", { bold: true, color: C.green }), td("Adapter #2: xSOL NAV computed by subtraction from Hylo's vault, hylo-core pinned to a commit. 17 tests. Published a real quote on a mainnet fork on 18 Sep, matched to the ninth decimal by an independent reader.")],
+    [td("tools/svi-keeper"), td("DONE", { bold: true, color: C.green }), td("Permissionless crank for both feeds, with decoded refusal codes. Can post its own Pyth updates where a feed is unsponsored, given a Hermes endpoint that serves it. 31 tests.")],
     [td("tools/stock-check + dashboard"), td("DONE", { bold: true, color: C.green }), td("An independent verifier sharing no code with the adapter, and a page that reads the accounts from the browser with no backend and no last-known value.")],
-    [td("Devnet deploy · MARKET_CLOSED observed"), td("NEXT", { bold: true, color: C.amber }), td("Runbook and address planner written and tested: four commands on a machine with a wallet. Turning the flag into a screenshot needs a keeper run across a real 16:00 ET close.")],
+    [td("A price source for the stock feeds"), td("BLOCKED", { bold: true, color: C.red }), td("Measured 18 Sep: Pyth's sponsored equity accounts are 6-34 days stale on mainnet, 78 days on devnet, and two of three xStock accounts do not exist on devnet at all. Hermes now answers 401 without a key. Deployment is four commands; the prices are the gap.")],
     [td("Sample lender · observer · audit"), td("NEXT", { color: C.muted }), td("No consumer reads the feed yet, which is the honest gap. No real collateral against these feeds until a third-party audit.")],
+    [td("check-pyth.py"), td("DONE", { bold: true, color: C.green }), td("Asks a cluster whether the feeds a deployment needs are fresh, correctly identified and fully verified, and says which of the three answers you have. It is how the row above was measured.")],
   ];
   table(s, rows, { x: M, y: 1.44, w: CW, colW: [3.0, 1.35, 7.743], fontSize: 11, rowH: 0.62 });
   card(s, { x: M, y: 6.5, w: CW, h: 0.6, fill: C.violet, line: C.violet });
   s.addText([
     { text: "The critical path is no longer engineering.  ", options: { color: C.paper, bold: true } },
-    { text: "It is a deployment, one observed market close, and a first consumer.", options: { color: "E4DDFB" } },
+    { text: "It is a price source for the stock feeds, and a first consumer. The Hylo feed needs neither.", options: { color: "E4DDFB" } },
   ], { x: M + 0.34, y: 6.64, w: CW - 0.68, h: 0.36, margin: 0, isTextBox: true, fontFace: F, fontSize: 15 });
   pageNum(s, false);
 }
@@ -555,9 +557,9 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
 {
   const s = lightSlide("Roadmap", "Six stages, each with a gate before the next", { tint: true });
   const stages = [
-    ["0", "Prove it on a fork", "Adapter publishes real xSOL NAV; off-chain recomputation matches exactly.", "DONE · 10 Sep", C.green, false, true],
+    ["0", "Prove it on a fork", "Adapter publishes real xSOL NAV; off-chain recomputation matches exactly.", "DONE · 18 Sep", C.green, false, true],
     ["1", "Mainnet + keeper", "Spec frozen and hashed. Both programs deployed. Keeper running; watcher public.", "NOW · ~2 weeks", C.violet, true, false],
-    ["2", "Observer + audit", "Zero divergence over 72 h through two RPCs. Third-party audit before any real collateral.", "Oct 2026", C.muted, false, false],
+    ["2", "Observer + audit", "Zero divergence over 72 h through two RPCs; that run sets the ORACLE_DIVERGENT tolerance. Audit before any real collateral.", "Oct 2026", C.muted, false, false],
     ["3", "First consumer", "One lending market or dashboard reads the quote account in production.", "Q4 2026", C.muted, false, false],
     ["4", "Adapter #2", "A second protocol ships with zero changes to core or the wire format.", "Q1 2027", C.muted, false, false],
     ["5", "Into the sRFC", "Submitted aligned with sRFC 40, not parallel to it.", "Q1–Q2 2027", C.muted, false, false],
@@ -612,14 +614,14 @@ const bullets = (items) => items.map((t, j) => ({ text: t, options: { bullet: tr
 {
   const s = lightSlide("Candour", "The objections worth raising, answered", { tint: true });
   const objs = [
-    ["“Isn't this just a Hylo wrapper?”",
-     "Today, yes, and the roadmap says so. The interface is the product: a second adapter that ships with zero changes to core or the wire format is the test, and it is stage 4. Until then, judge the design by whether the first adapter needed any cooperation from Hylo. It did not."],
+    ["“Doesn't Pyth already do this?”",
+     "For stocks it nearly does: Pyth publishes the share and the token as two unrelated feeds. Nobody publishes the relationship, and nobody refuses — Pyth will serve a 34-day-old AAPL price without complaint. For xSOL there is no feed at all: its NAV is computed from Hylo's own reserves, and that number exists nowhere else. We are a valuation layer, not a second price oracle."],
     ["“What if the adapter is wrong and someone gets liquidated?”",
      "A real risk. Hence: call hylo-core rather than reimplement it; refuse rather than publish on any unverified input; an observer that halts on a one-unit divergence; and no real collateral until a third-party audit. Until that audit, our own position is that no market should underwrite against these feeds."],
     ["“Is this a hackathon project that dies in November?”",
      "The mitigations hold regardless: everything open source, the keeper permissionless, the core small enough to freeze, and the methodology spec standing on its own as documentation of how xSOL is valued. If every line of SVI code were abandoned, the quote account keeps working until nobody cranks it — visibly."],
-    ["“What's in it for you?”",
-     "Reputation, a Colosseum submission with a working feed, and a shot at authoring a Solana standard. Not revenue — the standard and SDKs are permanently free and there is no token. Worth being blunt about, because an unexplained motivation is its own kind of risk."],
+    ["“Where does your price come from, and what when it stops?”",
+     "It has stopped. Pyth's sponsored stock accounts are 6-34 days stale on mainnet and mostly absent on devnet; Hermes now needs a key. So the stock feeds need a price source we do not yet have, and we say so on the status slide. The xSOL feed is unaffected — it reads Hylo's accounts directly. Our answer to a dead feed is the product: refuse, visibly, rather than publish the last thing we saw."],
   ];
   const cw = (CW - 0.3) / 2, ch = 2.44;
   objs.forEach(([q, a], i) => {

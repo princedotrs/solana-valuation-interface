@@ -133,8 +133,18 @@ def fetch_account(url: str, address: str) -> bytes | None:
 
 
 def describe(url: str, label: str, address: str, want_feed_id: str,
-             max_age: int, now: int) -> tuple[bool, list[str]]:
-    """Report on one feed. Returns (usable, notes)."""
+             max_age: int, now: int) -> tuple[str, list[str]]:
+    """Report on one feed.
+
+    Returns one of "ok", "stale", "missing", "wrong" or "unreachable", because
+    they call for different responses and an earlier version of this collapsed
+    them into a bool. A feed that is absent is not sponsored on this cluster. A
+    feed that is present, correctly identified, fully verified and merely too
+    old is sponsored and working -- it is just not being pushed right now, which
+    is what every account on a forked validator looks like. Treating the second
+    as the first argues for accepting partially verified prices on a cluster
+    where nothing is wrong with the fully verified ones.
+    """
     notes: list[str] = []
     try:
         got = fetch_account(url, address)
@@ -143,10 +153,10 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
         hint = diagnose(exc)
         if hint:
             notes += ["    " + ln for ln in hint.splitlines()]
-        return False, notes
+        return "unreachable", notes
 
     if got is None:
-        return False, [
+        return "missing", [
             f"{label}: NO ACCOUNT at {address}",
             f"    Pyth does not sponsor this feed on this cluster.",
             f"    The keeper must post its own updates (--post-updates), and this",
@@ -155,7 +165,7 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
 
     raw, owner = got
     if owner != PYTH_RECEIVER:
-        return False, [
+        return "wrong", [
             f"{label}: account exists but is owned by {owner},",
             f"    not the Pyth receiver ({PYTH_RECEIVER}).",
             f"    The adapter would abort with PythWrongOwner (6000).",
@@ -164,10 +174,10 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
     try:
         u = PriceUpdate(raw)
     except ValueError as exc:
-        return False, [f"{label}: account does not decode as a price update: {exc}"]
+        return "wrong", [f"{label}: account does not decode as a price update: {exc}"]
 
     age = now - u.publish_time
-    ok = True
+    status = "ok"
 
     notes.append(
         f"{label}: ${u.usd():,.4f}  +/-{u.conf_bps():.1f}bps  "
@@ -175,19 +185,61 @@ def describe(url: str, label: str, address: str, want_feed_id: str,
     )
 
     if u.feed_id != want_feed_id:
-        ok = False
+        status = "wrong"
         notes.append(f"    WRONG FEED: account holds {u.feed_id[:16]}…, expected {want_feed_id[:16]}…")
         notes.append(f"    The adapter would abort with PythFeedMismatch (6003).")
     if not u.full:
         notes.append(f"    Partial verification: this symbol needs min_verification_level = 0.")
     if age > max_age:
-        ok = False
+        status = "wrong" if status == "wrong" else "stale"
         notes.append(f"    TOO OLD: {age}s exceeds the {max_age}s hard limit — PythTooOld (6006).")
     if u.conf_bps() > MAX_CONF_BPS:
-        ok = False
+        status = "wrong"
         notes.append(f"    CONFIDENCE TOO WIDE: {u.conf_bps():.0f}bps over {MAX_CONF_BPS} — PythConfidenceTooWide (6008).")
-    return ok, notes
+    return status, notes
 
+
+# The Clock sysvar, which is where a Solana program's `Clock::get()` reads its
+# time. Layout: slot u64, epoch_start_timestamp i64, epoch u64,
+# leader_schedule_epoch u64, unix_timestamp i64.
+CLOCK_SYSVAR = "SysvarC1ock11111111111111111111111111111111"
+CLOCK_UNIX_TIMESTAMP_OFFSET = 32
+
+
+def chain_now(url: str) -> tuple[int, str]:
+    """The time the adapter will measure age against, and where it came from.
+
+    Reads the Clock sysvar, because that is the clock `Clock::get()` returns
+    on-chain: measuring against anything else can disagree with the program
+    about whether a price is too old, which is the one question being asked.
+
+    getBlockTime is the documented way to ask this and returns null often
+    enough -- a slot with no block time yet, a validator that does not keep
+    them -- that relying on it means silently falling back to the local
+    machine's clock, which on a forked or warped validator is not the chain's
+    time at all.
+    """
+    try:
+        got = fetch_account(url, CLOCK_SYSVAR)
+        if got is not None:
+            raw, _owner = got
+            off = CLOCK_UNIX_TIMESTAMP_OFFSET
+            if len(raw) >= off + 8:
+                ts = struct.unpack_from("<q", raw, off)[0]
+                if ts > 0:
+                    return ts, "Clock sysvar"
+    except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError):
+        pass
+
+    try:
+        slot = rpc(url, "getSlot", [])
+        bt = rpc(url, "getBlockTime", [slot])
+        if isinstance(bt, (int, float)) and bt > 0:
+            return int(bt), "getBlockTime"
+    except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError):
+        pass
+
+    return int(datetime.now(timezone.utc).timestamp()), "THIS MACHINE'S CLOCK"
 
 def load_symbols(path: Path) -> list[dict]:
     doc = json.loads(path.read_text())
@@ -285,38 +337,84 @@ def main() -> int:
 
     print(f"cluster   {args.rpc}")
     print(f"source    {path}")
-    try:
-        now = int(rpc(args.rpc, "getBlockTime", [rpc(args.rpc, "getSlot", [])]))
-        print(f"chain now {datetime.fromtimestamp(now, timezone.utc).isoformat()}\n")
-    except Exception as exc:
-        print(f"could not read the chain clock ({exc}); falling back to local time\n")
-        now = int(datetime.now(timezone.utc).timestamp())
+    now, source = chain_now(args.rpc)
+    print(f"chain now {datetime.fromtimestamp(now, timezone.utc).isoformat()}  ({source})")
+    if source == "THIS MACHINE'S CLOCK":
+        print("          WARNING: the chain's own clock could not be read, so every")
+        print("          age below is measured against this machine instead. On a")
+        print("          forked or time-warped validator that is not the same time,")
+        print("          and the adapter will disagree with these numbers.")
+    print()
 
-    sponsored, needs_posting = [], []
+    # Three outcomes, by what the operator has to DO about them.
+    #
+    # Stale and absent look different and are the same problem: no usable price
+    # is sitting on chain, and posting one fixes both -- post_update_atomic
+    # creates the account when it does not exist. An earlier version called an
+    # absent account "unusable", which is wrong; it is the ordinary case on a
+    # cluster where Pyth sponsors nothing.
+    #
+    # Broken is different in kind. A wrong feed id or a foreign owner is not
+    # something posting repairs, and proceeding risks publishing a real price
+    # for the wrong asset.
+    local = any(h in args.rpc for h in ("127.0.0.1", "localhost", "0.0.0.0"))
+    usable, needs_posting, broken = [], [], []
+
     for s in symbols:
         print(f"{s['symbol']}")
         eq_addr = s["equity_addr"] or pda(PYTH_PUSH_ORACLE,
                                           [args.shard.to_bytes(2, "little"), bytes.fromhex(s["equity"])])
         tk_addr = s["token_addr"] or pda(PYTH_PUSH_ORACLE,
                                          [args.shard.to_bytes(2, "little"), bytes.fromhex(s["token"])])
-        eq_ok, eq_notes = describe(args.rpc, "  equity", eq_addr, s["equity"], REFERENCE_MAX_AGE_SECS, now)
-        tk_ok, tk_notes = describe(args.rpc, "  token ", tk_addr, s["token"], TOKEN_MAX_AGE_SECS, now)
+        eq, eq_notes = describe(args.rpc, "  equity", eq_addr, s["equity"], REFERENCE_MAX_AGE_SECS, now)
+        tk, tk_notes = describe(args.rpc, "  token ", tk_addr, s["token"], TOKEN_MAX_AGE_SECS, now)
         for n in eq_notes + tk_notes:
             print(n)
         print()
-        (sponsored if (eq_ok and tk_ok) else needs_posting).append(s["symbol"])
+
+        rank = {"ok": 1, "stale": 2, "missing": 2, "wrong": 3, "unreachable": 3}
+        worst = max(rank[eq], rank[tk])
+        [usable, needs_posting, broken][worst - 1].append(s["symbol"])
 
     print("-" * 64)
-    if sponsored:
-        print(f"READ DIRECTLY ({len(sponsored)}): {', '.join(sponsored)}")
-        print("  Both feeds are live and usable. Crank with:")
+    if usable:
+        print(f"USABLE NOW ({len(usable)}): {', '.join(usable)}")
+        print("  Both feeds are fresh, correctly identified and fully verified.")
+        print("  Keep min_verification_level = 1 and crank normally:")
         print("    svi-keeper crank --feed stock:<SYM>")
-        print("  Keep min_verification_level = 1 unless a note above says otherwise.")
+        print()
+
     if needs_posting:
-        print(f"NEEDS --post-updates ({len(needs_posting)}): {', '.join(needs_posting)}")
-        print("  Set min_verification_level = 0 for these AT INITIALIZE TIME, then:")
+        print(f"NEEDS POSTED PRICES ({len(needs_posting)}): {', '.join(needs_posting)}")
+        print("  No usable price is on chain: the account is absent, or present and")
+        print("  too old. Posting fixes both -- post_update_atomic creates the")
+        print("  account when it does not exist.")
+        print()
+        if local:
+            print("  This is a local validator. If it forks a live cluster, an account")
+            print("  can be stale simply because the fork snapshotted it, so restart")
+            print("  the fork and re-run before concluding the feed is dead. Note the")
+            print("  token leg's limit is 30 minutes, so the window is short.")
+            print()
         print("    svi-keeper crank --feed stock:<SYM> --post-updates")
-    return 0 if sponsored else 2
+        print()
+        print("  The keeper posts with post_update_atomic, which verifies a subset of")
+        print("  guardian signatures by design, so the update is PARTIALLY verified")
+        print("  and these symbols need min_verification_level = 0. That is a real")
+        print("  reduction in security, and it buys a price that exists at all.")
+        print("  Pyth's two-step post_update verifies the whole VAA and stays Full,")
+        print("  at the cost of one more transaction and an encoded_vaa account --")
+        print("  worth it if these feeds are the product rather than a demo.")
+        print()
+
+    if broken:
+        print(f"DO NOT PROCEED ({len(broken)}): {', '.join(broken)}")
+        print("  A feed is wrongly owned, misidentified, unreadable or unreachable.")
+        print("  Posting does not repair any of those, and a wrong feed id means a")
+        print("  real, fully verified price for the WRONG ASSET. Fix the config.")
+        print()
+
+    return 0 if usable and not (needs_posting or broken) else 2
 
 
 if __name__ == "__main__":

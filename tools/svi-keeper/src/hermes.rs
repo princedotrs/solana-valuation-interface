@@ -39,7 +39,7 @@ use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use base64::Engine;
 use pythnet_sdk::wire::{
     from_slice,
@@ -242,6 +242,58 @@ pub fn post_update_atomic_ix(
 }
 
 /// Ask Hermes for the latest signed update for one feed.
+/// One client for every Hermes request, carrying an agent that names the tool.
+///
+/// `reqwest::get` builds a fresh client per call, which throws away connection
+/// reuse, and sends whatever default agent the build happens to have. The CDN
+/// in front of Hermes refuses some of those outright, and the refusal arrives
+/// as a bare 403 that looks like a bad feed id rather than a rejected client.
+/// Turn a refused Hermes response into the thing to do about it.
+///
+/// These three statuses mean different things and the difference decides the
+/// next step, but a bare "HTTP status client error" reads identically for all
+/// of them -- and, arriving in a loop next to a feed id, reads like the feed id
+/// is wrong when it is not.
+fn describe_refusal(status: reqwest::StatusCode, base: &str) -> String {
+    match status.as_u16() {
+        401 => format!(
+            "{base} answered 401 Unauthorized: this endpoint requires credentials. \
+             The request itself is fine and no feed id will change that. Either set \
+             HERMES_API_KEY for a key this endpoint accepts, or point the keeper at \
+             one that serves you: --hermes https://your-hermes. Pyth's public endpoint \
+             has been open historically; if it is refusing you now, it is gated or \
+             moved, and a provider-hosted or self-run Hermes is the way through."
+        ),
+        403 => format!(
+            "{base} answered 403 Forbidden: the request reached the service and was \
+             rejected. Usually a CDN refusing the client rather than anything about \
+             the feed. Check whether a proxy sits in front of this machine."
+        ),
+        429 => format!(
+            "{base} answered 429 Too Many Requests: slow the crank down with \
+             --interval, or use an endpoint with a higher allowance."
+        ),
+        _ => format!("{base} answered {status}"),
+    }
+}
+
+fn http_client() -> &'static reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .user_agent(concat!(
+                "svi-keeper/",
+                env!("CARGO_PKG_VERSION"),
+                " (+https://github.com/princedotrs/solana-valuation-interface)"
+            ))
+            .timeout(std::time::Duration::from_secs(20))
+            .build()
+            // Only fails if the TLS backend cannot start, which is not
+            // recoverable and not worth propagating through every call site.
+            .expect("building the HTTP client")
+    })
+}
+
 pub async fn fetch(base: &str, feed_id: &[u8; 32]) -> Result<SignedUpdate> {
     let url = format!(
         "{}/v2/updates/price/latest?ids[]={}&encoding=base64",
@@ -249,11 +301,27 @@ pub async fn fetch(base: &str, feed_id: &[u8; 32]) -> Result<SignedUpdate> {
         hex::encode(feed_id)
     );
 
-    let body: serde_json::Value = reqwest::get(&url)
+    let mut req = http_client().get(&url);
+    // Some Hermes deployments are gated. An endpoint that needs a key is a
+    // deployment choice, not a property of the protocol, so the key is read
+    // from the environment and never from a file that could be committed.
+    if let Ok(key) = std::env::var("HERMES_API_KEY") {
+        if !key.trim().is_empty() {
+            req = req.bearer_auth(key.trim());
+        }
+    }
+
+    let resp = req
+        .send()
         .await
-        .with_context(|| format!("GET {url}"))?
-        .error_for_status()
-        .with_context(|| format!("Hermes rejected the request for {}", hex::encode(feed_id)))?
+        .with_context(|| format!("GET {url}"))?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        bail!("{}", describe_refusal(status, base));
+    }
+
+    let body: serde_json::Value = resp
         .json()
         .await
         .context("Hermes returned a body that is not JSON")?;
@@ -418,5 +486,65 @@ mod tests {
     fn the_discriminator_is_the_anchor_one_for_this_instruction_name() {
         let want = hashv(&[b"global:post_update_atomic"]).to_bytes();
         assert_eq!(&want[..8], &IX_POST_UPDATE_ATOMIC);
+    }
+}
+
+#[cfg(test)]
+mod refusal_tests {
+    use super::describe_refusal;
+    use reqwest::StatusCode;
+
+    const BASE: &str = "https://hermes.pyth.network";
+
+    /// 401 is the one that wasted a debugging session. It arrived as "HTTP
+    /// status client error" beside a feed id, once every ten seconds, which
+    /// reads like the feed id is wrong. It is not: the request never got far
+    /// enough for the feed id to matter.
+    #[test]
+    fn unauthorized_says_credentials_and_rules_out_the_feed() {
+        let m = describe_refusal(StatusCode::UNAUTHORIZED, BASE);
+        assert!(m.contains("401"), "{m}");
+        assert!(m.contains("HERMES_API_KEY"), "must name the way to supply one: {m}");
+        assert!(m.contains("--hermes"), "must name the way to change endpoint: {m}");
+        assert!(m.contains("no feed id will change that"), "must rule out the feed: {m}");
+    }
+
+    #[test]
+    fn forbidden_and_unauthorized_do_not_give_the_same_advice() {
+        let unauth = describe_refusal(StatusCode::UNAUTHORIZED, BASE);
+        let forbid = describe_refusal(StatusCode::FORBIDDEN, BASE);
+        assert_ne!(unauth, forbid, "401 and 403 need different responses");
+        assert!(forbid.contains("403"), "{forbid}");
+        assert!(!forbid.contains("HERMES_API_KEY"), "a key does not fix a 403: {forbid}");
+    }
+
+    #[test]
+    fn rate_limiting_points_at_the_interval() {
+        let m = describe_refusal(StatusCode::TOO_MANY_REQUESTS, BASE);
+        assert!(m.contains("429") && m.contains("--interval"), "{m}");
+    }
+
+    /// An unmapped status must still name the endpoint and the code rather
+    /// than swallowing them.
+    #[test]
+    fn an_unmapped_status_still_reports_itself() {
+        let m = describe_refusal(StatusCode::INTERNAL_SERVER_ERROR, BASE);
+        assert!(m.contains("500"), "{m}");
+        assert!(m.contains(BASE), "{m}");
+    }
+
+    /// The endpoint is always named, because the whole question on a refusal
+    /// is which endpoint refused.
+    #[test]
+    fn every_message_names_the_endpoint() {
+        for s in [
+            StatusCode::UNAUTHORIZED,
+            StatusCode::FORBIDDEN,
+            StatusCode::TOO_MANY_REQUESTS,
+            StatusCode::BAD_GATEWAY,
+        ] {
+            let m = describe_refusal(s, "https://my-hermes.example");
+            assert!(m.contains("https://my-hermes.example"), "{s}: {m}");
+        }
     }
 }

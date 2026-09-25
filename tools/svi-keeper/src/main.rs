@@ -492,7 +492,7 @@ async fn crank(rpc_url: String, kp_path: String) -> Result<()> {
                     q.flag_names(), &sig[..16]
                 );
             }
-            Err(e) => println!("{now}  REFUSED    {}", explain(&e.to_string())),
+            Err(e) => println!("{now}  REFUSED    {}", explain(&format!("{e:#}"))),
         }
         let elapsed = started.elapsed();
         if elapsed < Duration::from_secs(interval) {
@@ -681,7 +681,7 @@ async fn crank_stock(rpc_url: String, kp_path: String, symbol: String) -> Result
                     _ => println!("{now}  published {}, but a quote did not read back", &sig[..16]),
                 }
             }
-            Err(e) => println!("{now}  REFUSED    {}", stock::explain_stock(&e.to_string())),
+            Err(e) => println!("{now}  REFUSED    {}", stock::explain_stock(&format!("{e:#}"))),
         }
         let elapsed = started.elapsed();
         if elapsed < Duration::from_secs(interval) {
@@ -796,7 +796,9 @@ async fn main() -> Result<()> {
              Pyth's sponsored accounts. Needed when a feed is not sponsored on\n                  \
              this cluster. Produces a Partial verification, so the symbol's\n                  \
              on-chain min_verification_level must be 0.\n  \
-             --hermes URL    override the Hermes endpoint (default hermes.pyth.network)"
+             --hermes URL    override the Hermes endpoint (default hermes.pyth.network)\n  \
+             HERMES_API_KEY  environment variable, sent as a bearer token when the\n                  \
+             endpoint requires one (a 401 says it does)"
         ),
     }
 }
