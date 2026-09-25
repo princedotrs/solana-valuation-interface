@@ -80,6 +80,26 @@ pub mod flags {
     /// one alone still sees it.
     pub const DEVIATION_HIGH: u64 = 1 << 19;
 
+    // ---- bits 32-39: RESERVED, cross-cutting ----
+    //
+    // Not allocated to any adapter, because the conditions here are about the
+    // relationship between an adapter and its inputs rather than about the
+    // asset. Both existing adapters would set the same bit for the same
+    // reason, so putting it in either private range would force the other to
+    // duplicate it at a different offset and make one flag mean two things.
+    //
+    // Reserved rather than defined: nothing sets these yet, and a constant in
+    // KNOWN_MASK that no adapter can produce would tell a consumer this core
+    // understands a signal it has never seen.
+    //
+    //   bit 32  ORACLE_DIVERGENT -- the upstream oracle this adapter is
+    //           required to use disagrees with an independent reference by
+    //           more than a configured tolerance. NOT a refusal: the value
+    //           stays correct with respect to the protocol that will honour
+    //           it, and the flag says its input looks wrong. See
+    //           docs/product/05-gtm.md.
+    //   bits 33-39  unallocated.
+
     /// Every bit any adapter may currently set. A bit outside this mask means
     /// a newer adapter than this core knows about.
     pub const KNOWN_MASK: u64 = 0b11_1111 | (0b1111 << 16);
@@ -195,6 +215,18 @@ mod tests {
         assert_eq!(protocol_nav, 0b11_1111, "protocol-NAV adapters own bits 0-5");
         assert_eq!(stock, 0b1111 << 16, "the stock adapter owns bits 16-19");
         assert_eq!(flags::KNOWN_MASK, protocol_nav | stock);
+    }
+
+    /// Bits 32-39 are reserved for cross-cutting conditions and must stay
+    /// outside KNOWN_MASK until an adapter can actually set one. Without this,
+    /// a later range could be allocated over the reservation and two unrelated
+    /// meanings would share a bit -- which no test would catch, because each
+    /// adapter would be internally consistent.
+    #[test]
+    fn the_cross_cutting_range_is_still_reserved() {
+        let reserved: u64 = 0xFF << 32;
+        assert_eq!(flags::KNOWN_MASK & reserved, 0,
+            "bits 32-39 are reserved; KNOWN_MASK must not claim them yet");
     }
 
     /// Bits 16-23 are the stock adapter's whole allocation; 20-23 are its room

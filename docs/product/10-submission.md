@@ -96,6 +96,10 @@ judge who notices it will value it more than a number that is always green.
 
 ---
 
+> Word-for-word narration, exact commands and a rehearsal checklist are in
+> [`11-video-production.md`](11-video-production.md). The beats below are the
+> summary; that document is the one to have open while recording.
+
 ## 3. Pitch video — 3 minutes
 
 The audience is someone who prices collateral for a living. They have watched
