@@ -51,7 +51,7 @@ use solana_sha256_hasher::hashv;
 use solana_signer::Signer;
 use solana_transaction::Transaction;
 
-const SVI_CORE_ID: &str = "H6495aW1Cxyoz2R7MuYVHF3Pu3FumFE9cZwKSJCR8oHH";
+const SVI_CORE_ID: &str = "5yVpoQJCtEqM1RC2Fn4D6rCSoq79e3tQ92Kx4fyePECN"; // svi-core's declare_id!
 const ADAPTER_ID: &str = "FfK5xyE3v3GT2F9wzqhpLMHx7zCJsGPQrHAvxtgL3Mpr";
 const CLOCK_SYSVAR: &str = "SysvarC1ock11111111111111111111111111111111";
 const SLOTS_PER_EPOCH: u64 = 432_000;

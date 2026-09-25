@@ -363,7 +363,15 @@ async fn publishes_a_real_xsol_nav_quote_on_a_surfnet() -> Result<()> {
         format!("{}/.config/solana/id.json", env::var("HOME").unwrap_or_default())
     });
 
-    let rpc = RpcClient::new_with_commitment(url.clone(), CommitmentConfig::confirmed());
+    // The default HTTP client timeout is 30s. On a resource-constrained machine
+    // a Surfnet can take longer than that to process and confirm a transaction,
+    // and the failure then surfaces as a generic "error sending request" rather
+    // than anything that names the real cause.
+    let rpc = RpcClient::new_with_timeout_and_commitment(
+        url.clone(),
+        std::time::Duration::from_secs(90),
+        CommitmentConfig::confirmed(),
+    );
     if rpc.get_version().await.is_err() {
         eprintln!("\nSKIPPED: no Surfnet at {}. Start one with `surfpool start`.\n", redact(&url));
         return Ok(());
